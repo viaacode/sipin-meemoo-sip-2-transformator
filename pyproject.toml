@@ -1,12 +1,14 @@
 [project]
 name = "sipin-meemoo-sip-2-transformator"
 version = "0.0.1"
-description = "A service that transforms a meemoo SIP to a (python) model."
+description = "A service that transforms a meemoo SIP to a (Python) model."
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "viaa-chassis",
     "pulsar-client",
+    "lxml==5.4.0",
+    "python-dateutil==2.9.0.post0"
 ]
 classifiers = [
   "Development Status :: 3 - Alpha",
@@ -15,9 +17,7 @@ classifiers = [
 
 [project.optional-dependencies]
 dev = [
-    "ruff",
-    "pytest",
-    "pytest-cov",
+    "types-lxml==2025.3.30",
 ]
 
 [tool.pytest.ini_options]

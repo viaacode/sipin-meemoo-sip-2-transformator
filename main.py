@@ -1,1 +1,5 @@
-print(f"New project with name sipin-meemoo-sip-2-transformator")
+from app.app import parse_package
+
+
+if __name__ == "__main__":
+    parse_package()

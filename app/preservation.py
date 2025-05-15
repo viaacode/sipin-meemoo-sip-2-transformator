@@ -16,7 +16,19 @@ from sippy.vocabulary import Represents, haObj
 
 from app.mets import METS, parse_mets
 from app.utils import ParseException
-from app.premis import Premis
+from app.premis import (
+    AgentIdentifier,
+    Event as PremisEvent,
+    LinkingAgent,
+    LinkingAgentIdentifier,
+    LinkingObject,
+    LinkingObjectIdentifier,
+    ObjectIdentifier,
+    Premis,
+    Agent as PremisAgent,
+    Object as PremisObject,
+    TemporaryObject,
+)
 
 
 class PremisFiles(BaseModel):
@@ -53,6 +65,82 @@ class PremisFiles(BaseModel):
         """
         TODO
         """
+        # These also exist in premis but are not used in our SIP spec
+        # linking_event_identifiers
+        # linking_rights_statement_identifiers
+
+        objects: list[PremisObject] = []
+        objects.extend(self.package.objects)
+        for repr in self.representations:
+            objects.extend(repr.objects)
+
+        agents: list[PremisAgent] = []
+        agents.extend(self.package.agents)
+        for repr in self.representations:
+            agents.extend(repr.agents)
+
+        events: list[PremisEvent] = []
+        events.extend(self.package.events)
+        for repr in self.representations:
+            events.extend(repr.events)
+
+        for event in events:
+            linking_agents: list[LinkingAgent | LinkingAgentIdentifier] = []
+            linking_objects: list[LinkingObject | LinkingObjectIdentifier] = []
+
+            for linking_agent_id in event.linking_agents:
+                # We can assume linking_agents to be of type `LinkingAgentIdentifier` here,
+                # as that is the only value allowed by the PREMIS xsd
+                if isinstance(linking_agent_id, LinkingAgent):
+                    raise ParseException(
+                        "Invalid premis file found while resolving links or `resolve_links` called twice."
+                    )
+
+                agent_id = AgentIdentifier(
+                    type=linking_agent_id.type,
+                    value=linking_agent_id.value,
+                )
+                includes_id = lambda agent, id: any(
+                    id == _id for _id in agent.identifiers
+                )
+                agent = next(agent for agent in agents if includes_id(agent, agent_id))
+                linking_agents.append(
+                    LinkingAgent(
+                        agent=agent,
+                        roles=linking_agent_id.roles,
+                    )
+                )
+
+            for linking_object_id in event.linking_objects:
+                if isinstance(linking_object_id, LinkingObject):
+                    raise ParseException(
+                        "Invalid premis file found while resolving links or `resolve_links` called twice."
+                    )
+
+                object_id = ObjectIdentifier(
+                    type=linking_object_id.type,
+                    value=linking_object_id.value,
+                )
+                includes_id = lambda object, id: any(
+                    id == _id for _id in object.identifiers
+                )
+
+                try:
+                    object = next(
+                        object for object in objects if includes_id(object, object_id)
+                    )
+                except StopIteration:
+                    object = TemporaryObject(identifiers=[object_id])
+
+                linking_objects.append(
+                    LinkingObject(
+                        object=object,
+                        roles=linking_object_id.roles,
+                    )
+                )
+
+            event.linking_agents = linking_agents
+            event.linking_objects = linking_objects
 
     def get_structural_info(self) -> dict[str, Any]:
         """

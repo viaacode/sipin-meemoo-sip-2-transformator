@@ -226,13 +226,21 @@ class IntellectualEntity(PremisBaseModel, tag="object"):
 Object = File | Representation | IntellectualEntity | Bitstream
 
 
+class TemporaryObject(BaseXmlModel):
+    """
+    Utility class used when resolving linking object identifiers.
+    """
+
+    identifiers: list[ObjectIdentifier]
+
+
 class LinkingObject(BaseXmlModel):
     """
     This is a utility class that does not exist in PREMIS.
     It is used for to replace `LinkingObjectIdentifiers` by the actual `Object` that is referenced.
     """
 
-    object: Object
+    object: Object | TemporaryObject
     roles: list[StringPlusAuthority]
 
 

@@ -31,4 +31,8 @@ def parse_package():
         **descriptive,
     )
 
-    print(ie)
+    events = premis_files.parse_events()
+
+    from rich import print
+
+    print(events)

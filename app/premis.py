@@ -1,13 +1,14 @@
-from typing import Literal
+from typing import Literal, Tuple
+
 from pydantic_xml import BaseXmlModel, attr, element
 from app.utils import ns
 
 
-class PremisBaseModel(BaseXmlModel, ns="premis", nsmap=ns):
+class PremisBaseModel(BaseXmlModel, ns="premis", nsmap=ns, frozen=True):
     pass
 
 
-class StringPlusAuthority(BaseXmlModel):
+class StringPlusAuthority(BaseXmlModel, frozen=True):
     authority: str | None = attr(default=None)
     authority_uri: str | None = attr(name="authorityURI", default=None)
     innerText: str
@@ -17,7 +18,7 @@ class StringPlusAuthority(BaseXmlModel):
 ########## Object ##########
 
 
-class ObjectIdentifier(PremisBaseModel, tag="objectIdentifier"):
+class ObjectIdentifier(PremisBaseModel, tag="objectIdentifier", frozen=True):
     type: StringPlusAuthority = element(tag="objectIdentifierType", ns="premis")
     value: str = element(tag="objectIdentifierValue", ns="premis")
     simple_link: str | None = attr(name="simpleLink", default=None)
@@ -43,7 +44,7 @@ class ObjectIdentifier(PremisBaseModel, tag="objectIdentifier"):
         )
 
 
-class Fixity(PremisBaseModel, tag="fixity"):
+class Fixity(PremisBaseModel, tag="fixity", frozen=True):
     message_digest_algorithm: StringPlusAuthority = element(
         tag="messageDigestAlgorithm", ns="premis"
     )
@@ -53,12 +54,12 @@ class Fixity(PremisBaseModel, tag="fixity"):
     )
 
 
-class FormatDesignation(PremisBaseModel, tag="formatDesignation"):
+class FormatDesignation(PremisBaseModel, tag="formatDesignation", frozen=True):
     name: StringPlusAuthority = element(tag="formatName", ns="premis")
     version: str | None = element(tag="formatVersion", ns="premis", default=None)
 
 
-class FormatRegistry(PremisBaseModel, tag="formatRegistry"):
+class FormatRegistry(PremisBaseModel, tag="formatRegistry", frozen=True):
     name: StringPlusAuthority = element(tag="formatRegistryName", ns="premis")
     key: StringPlusAuthority = element(tag="formatRegistryKey", ns="premis")
     role: StringPlusAuthority | None = element(
@@ -67,13 +68,13 @@ class FormatRegistry(PremisBaseModel, tag="formatRegistry"):
     simple_link: str | None = attr(name="simpleLink", default=None)
 
 
-class Format(PremisBaseModel, tag="format"):
+class Format(PremisBaseModel, tag="format", frozen=True):
     designation: FormatDesignation | None = element(default=None)
     registry: FormatRegistry | None = element(default=None)
     note: list[str] = element(tag="formatNote", ns="premis", default_factory=list)
 
 
-class ObjectCharacteristics(PremisBaseModel, tag="objectCharacteristics"):
+class ObjectCharacteristics(PremisBaseModel, tag="objectCharacteristics", frozen=True):
     # composition_level: ...
     fixity: list[Fixity] = element(default_factory=list)
     size: int | None = element(tag="size", ns="premis", default=None)
@@ -83,12 +84,14 @@ class ObjectCharacteristics(PremisBaseModel, tag="objectCharacteristics"):
     # object_characteristics_extension: ...
 
 
-class OriginalName(PremisBaseModel, tag="orignalName"):
+class OriginalName(PremisBaseModel, tag="orignalName", frozen=True):
     value: str
     simple_link: str | None = attr(name="simpleLink", default=None)
 
 
-class RelatedObjectIdentifier(PremisBaseModel, tag="relatedObjectIdentifier"):
+class RelatedObjectIdentifier(
+    PremisBaseModel, tag="relatedObjectIdentifier", frozen=True
+):
     type: StringPlusAuthority = element(tag="relatedObjectIdentifierType", ns="premis")
     value: str = element(tag="relatedObjectIdentifierValue", ns="premis")
     # sequence: ... | None
@@ -96,7 +99,7 @@ class RelatedObjectIdentifier(PremisBaseModel, tag="relatedObjectIdentifier"):
     simple_link: str | None = attr(name="simpleLink", default=None)
 
 
-class Relationship(PremisBaseModel, tag="relationship"):
+class Relationship(PremisBaseModel, tag="relationship", frozen=True):
     type: StringPlusAuthority = element(tag="relationshipType", ns="premis")
     sub_type: StringPlusAuthority = element(tag="relationshipSubType", ns="premis")
     related_object_identifier: list[RelatedObjectIdentifier] = element(min_length=1)
@@ -115,7 +118,7 @@ class Relationship(PremisBaseModel, tag="relationship"):
         )
 
 
-class SignificantProperties(PremisBaseModel, tag="significantProperties"):
+class SignificantProperties(PremisBaseModel, tag="significantProperties", frozen=True):
     type: StringPlusAuthority | None = element(
         tag="significantPropertiesType", ns="premis", default=None
     )
@@ -127,14 +130,14 @@ class SignificantProperties(PremisBaseModel, tag="significantProperties"):
     )
 
 
-class Storage(PremisBaseModel, tag="storage"):
+class Storage(PremisBaseModel, tag="storage", frozen=True):
     # content_location: ... | None
     storage_medium: StringPlusAuthority | None = element(
         tag="storageMedium", ns="premis", default=None
     )
 
 
-class File(PremisBaseModel, tag="object"):
+class File(PremisBaseModel, tag="object", frozen=True):
     xsi_type: Literal["premis:file"] = attr(name="type", ns="xsi")
 
     identifiers: list[ObjectIdentifier] = element(min_length=1)
@@ -156,7 +159,7 @@ class File(PremisBaseModel, tag="object"):
         return next((id for id in self.identifiers if id.is_uuid))
 
 
-class Representation(PremisBaseModel, tag="object"):
+class Representation(PremisBaseModel, tag="object", frozen=True):
     xsi_type: Literal["premis:representation"] = attr(name="type", ns="xsi")
 
     identifiers: list[ObjectIdentifier] = element(min_length=1)
@@ -176,7 +179,7 @@ class Representation(PremisBaseModel, tag="object"):
         return next((id for id in self.identifiers if id.is_uuid))
 
 
-class Bitstream(PremisBaseModel, tag="object"):
+class Bitstream(PremisBaseModel, tag="object", frozen=True):
     xsi_type: Literal["premis:bitstream"] = attr(name="type", ns="xsi")
 
     identifiers: list[ObjectIdentifier] = element(min_length=1)
@@ -196,7 +199,7 @@ class Bitstream(PremisBaseModel, tag="object"):
         return next((id for id in self.identifiers if id.is_uuid))
 
 
-class IntellectualEntity(PremisBaseModel, tag="object"):
+class IntellectualEntity(PremisBaseModel, tag="object", frozen=True):
     xsi_type: Literal["premis:intellectualEntity"] = attr(name="type", ns="xsi")
 
     identifiers: list[ObjectIdentifier] = element(min_length=1)
@@ -226,106 +229,116 @@ class IntellectualEntity(PremisBaseModel, tag="object"):
 Object = File | Representation | IntellectualEntity | Bitstream
 
 
-class TemporaryObject(BaseXmlModel):
-    """
-    Utility class used when resolving linking object identifiers.
-    """
-
-    identifiers: list[ObjectIdentifier]
-
-
-class LinkingObject(BaseXmlModel):
-    """
-    This is a utility class that does not exist in PREMIS.
-    It is used for to replace `LinkingObjectIdentifiers` by the actual `Object` that is referenced.
-    """
-
-    object: Object | TemporaryObject
-    roles: list[StringPlusAuthority]
-
-
 ########## Agent ##########
 
 
-class AgentIdentifier(PremisBaseModel, tag="agentIdentifier"):
+class AgentIdentifier(PremisBaseModel, tag="agentIdentifier", frozen=True):
     type: StringPlusAuthority = element(tag="agentIdentifierType", ns="premis")
     value: str = element(tag="agentIdentifierValue", ns="premis")
 
+    @property
+    def is_uuid(self):
+        return self.type.innerText == "UUID"
 
-class Agent(PremisBaseModel, tag="agent"):
+    @property
+    def is_or_id(self):
+        return self.type.innerText == "MEEMOO-OR-ID"
+
+
+class Agent(PremisBaseModel, tag="agent", frozen=True):
     identifiers: list[AgentIdentifier] = element(min_length=1)
     name: StringPlusAuthority = element(tag="agentName", ns="premis")
     type: StringPlusAuthority = element(tag="agentType", ns="premis")
 
+    @property
+    def uuid(self):
+        return next((id for id in self.identifiers if id.is_uuid))
 
-class LinkingAgent(BaseXmlModel):
-    """
-    This is a utility class that does not exist in PREMIS.
-    It is used for to replace `LinkingAgentIdentifiers` by the actual `Agent` that is referenced.
-    """
+    @property
+    def or_id(self):
+        return next((id for id in self.identifiers if id.is_or_id))
 
-    agent: Agent
-    roles: list[StringPlusAuthority]
+    @property
+    def primary_identifier(self):
+        try:
+            return self.or_id
+        except StopIteration:
+            pass
+
+        try:
+            return self.uuid
+        except StopIteration:
+            pass
+
+        return next((id for id in self.identifiers))
 
 
 ########## Event ##########
 
 
-class EventIdentifier(PremisBaseModel, tag="eventIdentifier"):
+class EventIdentifier(PremisBaseModel, tag="eventIdentifier", frozen=True):
     type: StringPlusAuthority = element(tag="eventIdentifierType", ns="premis")
     value: StringPlusAuthority = element(tag="eventIdentifierValue", ns="premis")
     simple_link: str | None = attr(name="simpleLink", default=None)
 
 
-class EventDetailInformation(PremisBaseModel, tag="eventDetailInformation"):
+class EventDetailInformation(
+    PremisBaseModel, tag="eventDetailInformation", frozen=True
+):
     detail: str | None = element(tag="eventDetail", ns="premis", default=None)
     # detail_extension: list[EventDetailExtension] = element(default_factory=list)
 
 
-class EventOutcomeDetail(PremisBaseModel, tag="eventOutcomeDetail"):
+class EventOutcomeDetail(PremisBaseModel, tag="eventOutcomeDetail", frozen=True):
     note: str | None = element(tag="eventOutcomeDetailNote", ns="premis", default=None)
     # extension: list[EventOutcomeExtension] = (default_factory=list)
 
 
-class EventOutcomeInformation(PremisBaseModel, tag="eventOutcomeInformation"):
+class EventOutcomeInformation(
+    PremisBaseModel, tag="eventOutcomeInformation", frozen=True
+):
     outcome: StringPlusAuthority | None = element(
         tag="eventOutcome", ns="premis", default=None
     )
     outcome_detail: list[EventOutcomeDetail] = element(default_factory=list)
 
 
-class LinkingAgentIdentifier(PremisBaseModel, tag="linkingAgentIdentifier"):
+class LinkingAgentIdentifier(
+    PremisBaseModel, tag="linkingAgentIdentifier", frozen=True
+):
     type: StringPlusAuthority = element(tag="linkingAgentIdentifierType", ns="premis")
     value: str = element(tag="linkingAgentIdentifierValue", ns="premis")
-    roles: list[StringPlusAuthority] = element(
-        tag="linkingAgentRole", ns="premis", default_factory=list
+    roles: Tuple[StringPlusAuthority, ...] = element(
+        tag="linkingAgentRole", ns="premis", default_factory=tuple
     )
 
     # LinkAgentXmlID
     simple_link: str | None = attr(name="simpleLink", default=None)
 
 
-class LinkingObjectIdentifier(PremisBaseModel, tag="linkingObjectIdentifier"):
+class LinkingObjectIdentifier(
+    PremisBaseModel, tag="linkingObjectIdentifier", frozen=True
+):
     type: StringPlusAuthority = element(tag="linkingObjectIdentifierType", ns="premis")
     value: str = element(tag="linkingObjectIdentifierValue", ns="premis")
-    roles: list[StringPlusAuthority] = element(
-        tag="linkingObjectRole", ns="premis", default_factory=list
+    roles: tuple[StringPlusAuthority, ...] = element(
+        tag="linkingObjectRole", ns="premis", default_factory=tuple
     )
 
     # LinkObjectXmlID
     simple_link: str | None = attr(name="simpleLink", default=None)
 
 
-class Event(PremisBaseModel, tag="event"):
+class Event(PremisBaseModel, tag="event", frozen=True):
     identifier: EventIdentifier
     type: StringPlusAuthority = element(tag="eventType", ns="premis")
     datetime: str = element(tag="eventDateTime", ns="premis")
     detail_information: list[EventDetailInformation] = element(default_factory=list)
     outcome_information: list[EventOutcomeInformation] = element(default_factory=list)
-    linking_agents: list[LinkingAgentIdentifier | LinkingAgent] = element(
+    linking_agent_identifiers: list[LinkingAgentIdentifier] = element(
         default_factory=list
     )
-    linking_objects: list[LinkingObjectIdentifier | LinkingObject] = element(
+    linking_object_identifiers: list[LinkingObjectIdentifier] = element(
         default_factory=list
     )
 
@@ -336,7 +349,7 @@ class Event(PremisBaseModel, tag="event"):
 ########## Premis ##########
 
 
-class Premis(PremisBaseModel, tag="premis"):
+class Premis(PremisBaseModel, tag="premis", frozen=True):
     objects: list[Object] = element(default_factory=list, min_legnth=1)
     events: list[Event] = element(default_factory=list)
     agents: list[Agent] = element(default_factory=list)

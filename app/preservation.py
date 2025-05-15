@@ -1,16 +1,29 @@
-from typing import Any, Callable
+from typing import Any, Callable, cast
 
 from lxml import etree
+import dateutil.parser
+from pydantic import BaseModel
 
+from sippy.descriptive import Organization, Person
+from sippy.events import (
+    Agent,
+    Event,
+    EventAgentRole,
+    EventClass,
+    EventOutcome,
+    EventRelObjRole,
+    SoftwareAgent,
+)
 from sippy.objects import (
     AnyRepresentation,
     CarrierRepresentation,
     DigitalRepresentation,
     File,
     LocalIdentifier,
+    Object,
     Reference,
 )
-from sippy.utils import NonNegativeInt
+from sippy.utils import DateTime, LangStr, NonNegativeInt, URIRef
 from sippy.vocabulary import Represents, haObj
 
 from app.mets import METS, parse_mets
@@ -18,21 +31,65 @@ from app.utils import ParseException
 from app.premis import (
     AgentIdentifier,
     Event as PremisEvent,
-    LinkingAgent,
     LinkingAgentIdentifier,
-    LinkingObject,
     LinkingObjectIdentifier,
     ObjectIdentifier,
     Premis,
     Agent as PremisAgent,
     Object as PremisObject,
-    TemporaryObject,
+    StringPlusAuthority,
 )
+
+
+class TemporaryObject(BaseModel):
+    """
+    Utility class used when resolving linking object identifiers.
+    """
+
+    identifiers: list[ObjectIdentifier]
+
+    @property
+    def uuid(self):
+        return next((id for id in self.identifiers if id.is_uuid))
+
+
+class AgentLink(BaseModel):
+    """
+    This is a utility class that does not exist in PREMIS.
+    It is used for to replace `LinkingAgentIdentifiers` by the actual `Agent` that is referenced.
+    """
+
+    agent: PremisAgent
+    roles: tuple[StringPlusAuthority, ...]
+
+    @property
+    def is_implementer(self) -> bool:
+        return any([role.value_uri == EventAgentRole.imp for role in self.roles])
+
+    @property
+    def is_executer(self) -> bool:
+        return any([role.value_uri == EventAgentRole.exe for role in self.roles])
+
+    @property
+    def has_no_role(self) -> bool:
+        return len(self.roles) == 0
+
+
+class ObjectLink(BaseModel):
+    """
+    This is a utility class that does not exist in PREMIS.
+    It is used for to replace `LinkingObjectIdentifiers` by the actual `Object` that is referenced.
+    """
+
+    object: PremisObject | TemporaryObject
+    roles: tuple[StringPlusAuthority, ...]
 
 
 class PremisFiles:
     package: Premis
     representations: list[Premis]
+    agent_map: dict[LinkingAgentIdentifier, AgentLink]
+    object_map: dict[LinkingObjectIdentifier, ObjectLink]
 
     def __init__(self, package_mets: METS):
         self.package = self.parse_package_file(package_mets)
@@ -72,29 +129,29 @@ class PremisFiles:
         # linking_event_identifiers
         # linking_rights_statement_identifiers
 
-        objects: list[PremisObject] = []
-        objects.extend(self.package.objects)
+        all_objects: list[PremisObject] = []
+        all_objects.extend(self.package.objects)
         for repr in self.representations:
-            objects.extend(repr.objects)
+            all_objects.extend(repr.objects)
 
-        agents: list[PremisAgent] = []
-        agents.extend(self.package.agents)
+        all_agents: list[PremisAgent] = []
+        all_agents.extend(self.package.agents)
         for repr in self.representations:
-            agents.extend(repr.agents)
+            all_agents.extend(repr.agents)
 
         events: list[PremisEvent] = []
         events.extend(self.package.events)
         for repr in self.representations:
             events.extend(repr.events)
 
-        for event in events:
-            linking_agents: list[LinkingAgent | LinkingAgentIdentifier] = []
-            linking_objects: list[LinkingObject | LinkingObjectIdentifier] = []
+        self.agent_map = {}
+        self.object_map = {}
 
-            for linking_agent_id in event.linking_agents:
+        for event in events:
+            for linking_agent_id in event.linking_agent_identifiers:
                 # We can assume linking_agents to be of type `LinkingAgentIdentifier` here,
                 # as that is the only value allowed by the PREMIS xsd
-                if isinstance(linking_agent_id, LinkingAgent):
+                if isinstance(linking_agent_id, AgentLink):
                     raise ParseException(
                         "Invalid premis file found while resolving links or `resolve_links` called twice."
                     )
@@ -106,16 +163,17 @@ class PremisFiles:
                 includes_id = lambda agent, id: any(
                     id == _id for _id in agent.identifiers
                 )
-                agent = next(agent for agent in agents if includes_id(agent, agent_id))
-                linking_agents.append(
-                    LinkingAgent(
-                        agent=agent,
-                        roles=linking_agent_id.roles,
-                    )
+                agent = next(
+                    agent for agent in all_agents if includes_id(agent, agent_id)
                 )
 
-            for linking_object_id in event.linking_objects:
-                if isinstance(linking_object_id, LinkingObject):
+                self.agent_map[linking_agent_id] = AgentLink(
+                    agent=agent,
+                    roles=linking_agent_id.roles,
+                )
+
+            for linking_object_id in event.linking_object_identifiers:
+                if isinstance(linking_object_id, ObjectLink):
                     raise ParseException(
                         "Invalid premis file found while resolving links or `resolve_links` called twice."
                     )
@@ -130,20 +188,37 @@ class PremisFiles:
 
                 try:
                     object = next(
-                        object for object in objects if includes_id(object, object_id)
+                        object
+                        for object in all_objects
+                        if includes_id(object, object_id)
                     )
                 except StopIteration:
                     object = TemporaryObject(identifiers=[object_id])
 
-                linking_objects.append(
-                    LinkingObject(
-                        object=object,
-                        roles=linking_object_id.roles,
+                # Bug in Pydanintic-xml instanciates a list instead of tuple
+                # when the the tuple/list is empty
+                if type(linking_object_id.roles) is list:
+                    linking_object_id = LinkingObjectIdentifier(
+                        type=linking_object_id.type,
+                        value=linking_object_id.value,
+                        roles=(),
+                        simple_link=linking_object_id.simple_link,
                     )
+
+                self.object_map[linking_object_id] = ObjectLink(
+                    object=object,
+                    roles=linking_object_id.roles,
                 )
 
-            event.linking_agents = linking_agents
-            event.linking_objects = linking_objects
+    def get_agents_from_ids(
+        self, agent_ids: list[LinkingAgentIdentifier]
+    ) -> list[AgentLink]:
+        return [self.agent_map[agent_id] for agent_id in agent_ids]
+
+    def get_objects_from_ids(
+        self, object_ids: list[LinkingObjectIdentifier]
+    ) -> list[ObjectLink]:
+        return [self.object_map[object_id] for object_id in object_ids]
 
     def get_structural_info(self) -> dict[str, Any]:
         """
@@ -261,3 +336,120 @@ class PremisFiles:
             digital_representations.append(digital)
 
         return digital_representations
+
+    def parse_events(self) -> list[Event]:
+        events = []
+        premis_events = self.package.events
+        for event in premis_events:
+            type = cast(EventClass, event.type.value_uri)
+            datetime = dateutil.parser.parse(event.datetime)
+
+            agent_links = self.get_agents_from_ids(event.linking_agent_identifiers)
+
+            impelementer_agent = next(
+                (
+                    agent_link.agent
+                    for agent_link in agent_links
+                    if agent_link.is_implementer
+                )
+            )
+            executer_agent = next(
+                (
+                    agent_link.agent
+                    for agent_link in agent_links
+                    if agent_link.is_executer
+                ),
+                None,
+            )
+            executed_by = (
+                SoftwareAgent(
+                    id=executer_agent.primary_identifier.value,
+                    name=LangStr(nl=executer_agent.name.innerText),
+                    model=None,
+                    serial_number=None,
+                    version=None,
+                )
+                if executer_agent
+                else None
+            )
+
+            associated_agents = [
+                agent_link.agent for agent_link in agent_links if agent_link.has_no_role
+            ]
+
+            # TODO: could also be an organization
+            # TODO: where to put agent type?
+            was_associated_with: list[Agent] = [
+                Person(
+                    id=agent.uuid.value,
+                    name=LangStr(nl=agent.name.innerText),
+                    birth_date=None,
+                    death_date=None,
+                )
+                for agent in associated_agents
+            ]
+
+            note = "\\n".join(
+                [info.detail for info in event.detail_information if info.detail]
+            )
+            outcome_note = "\\n".join(
+                [
+                    "\\n".join(
+                        [detail.note for detail in info.outcome_detail if detail.note]
+                    )
+                    for info in event.outcome_information
+                ]
+            )
+            outcome = [
+                info.outcome.value_uri
+                for info in event.outcome_information
+                if info.outcome and info.outcome.value_uri
+            ]
+            if len(outcome) > 1:
+                raise ParseException("Only one outcome per event is supported.")
+            outcome = outcome[0]
+
+            object_links = self.get_objects_from_ids(event.linking_object_identifiers)
+            is_source: Callable[[ObjectLink], bool] = lambda obj: any(
+                (role.value_uri == EventRelObjRole.sou for role in obj.roles)
+            )
+            is_result: Callable[[ObjectLink], bool] = lambda obj: any(
+                (role.value_uri == EventRelObjRole.out for role in obj.roles)
+            )
+            source = [
+                Reference(id=obj_link.object.uuid.value)
+                for obj_link in object_links
+                if is_source(obj_link)
+            ]
+            result = [
+                (
+                    Reference(id=obj_link.object.uuid.value)
+                    if isinstance(obj_link.object, TemporaryObject)
+                    else Object(id=obj_link.object.uuid.value)
+                )
+                for obj_link in object_links
+                if is_result(obj_link)
+            ]
+
+            events.append(
+                Event(
+                    id=event.identifier.value.innerText,
+                    type=type,
+                    was_associated_with=was_associated_with,
+                    started_at_time=DateTime(value=datetime),
+                    ended_at_time=DateTime(value=datetime),
+                    implemented_by=Organization(
+                        identifier=impelementer_agent.primary_identifier.value,
+                        pref_label=LangStr(nl=impelementer_agent.name.innerText),
+                    ),
+                    note=note if note else None,
+                    outcome=URIRef(id=cast(EventOutcome, outcome)),
+                    outcome_note=outcome_note if outcome_note else None,
+                    executed_by=executed_by,
+                    source=source,
+                    result=result,
+                    # TODO: instrument
+                )
+            )
+
+        return events

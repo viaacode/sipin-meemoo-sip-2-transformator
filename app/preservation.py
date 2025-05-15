@@ -1,7 +1,6 @@
-from typing import Any, Self, Callable
+from typing import Any, Callable
 
 from lxml import etree
-from pydantic import BaseModel
 
 from sippy.objects import (
     AnyRepresentation,
@@ -31,23 +30,31 @@ from app.premis import (
 )
 
 
-class PremisFiles(BaseModel):
+class PremisFiles:
     package: Premis
     representations: list[Premis]
 
-    @classmethod
-    def from_package_mets(cls, package_mets: METS) -> Self:
+    def __init__(self, package_mets: METS):
+        self.package = self.parse_package_file(package_mets)
+        self.representations = self.parse_representation_files(package_mets)
+        self.resolve_links()
+
+    def parse_package_file(self, package_mets: METS):
         """
-        Parse the package and representation PREMIS files.
+        Parse the package PREMIS file.
         """
         if package_mets.administrative_metadata is None:
             raise ParseException("No package PREMIS found.")
 
         premis_xml = etree.parse(package_mets.administrative_metadata).getroot()
         package_premis = Premis.from_xml_tree(premis_xml)
+        return package_premis
 
+    def parse_representation_files(self, package_mets: METS):
+        """
+        Parse the representation PREMIS files.
+        """
         representations = []
-
         for path in package_mets.representations:
             repr_mets = parse_mets(path)
             if repr_mets.administrative_metadata is None:
@@ -55,11 +62,7 @@ class PremisFiles(BaseModel):
             premis_xml = etree.parse(repr_mets.administrative_metadata).getroot()
             repr_premis = Premis.from_xml_tree(premis_xml)
             representations.append(repr_premis)
-
-        return cls(
-            package=package_premis,
-            representations=representations,
-        )
+        return representations
 
     def resolve_links(self):
         """

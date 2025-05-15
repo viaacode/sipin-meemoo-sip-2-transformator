@@ -18,8 +18,7 @@ def parse_package():
     mets_path = Path(PATH).joinpath("METS.xml")
 
     package_mets = parse_mets(mets_path)
-    premis_files = PremisFiles.from_package_mets(package_mets)
-    premis_files.resolve_links()
+    premis_files = PremisFiles(package_mets)
 
     structural = premis_files.get_structural_info()
     descriptive = parse_descriptive(package_mets)

@@ -94,7 +94,7 @@ def xpath_text(element: _Element, path: str) -> str:
     return result[0]
 
 
-def parse_lang_str(element: _Element, path: str) -> LangStr | None:
+def xpath_optional_lang_str(element: _Element, path: str) -> LangStr | None:
     elements = xpath_element_list(element, path)
 
     if len(elements) == 0:
@@ -107,3 +107,12 @@ def parse_lang_str(element: _Element, path: str) -> LangStr | None:
         kwargs |= {lang: value}
 
     return LangStr.codes(**kwargs)
+
+
+def xpath_lang_str(element: _Element, path: str) -> LangStr:
+    langstr = xpath_optional_lang_str(element, path)
+    if langstr is None:
+        raise XPathException(
+            f"No lang string found on element {element} at path {path}"
+        )
+    return langstr

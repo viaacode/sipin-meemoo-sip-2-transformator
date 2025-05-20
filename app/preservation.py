@@ -131,7 +131,7 @@ class PremisFiles:
 
     def resolve_links(self):
         """
-        TODO
+        Creates a dict that maps agent/object identifiers to the agent/object themselves.
         """
         # These also exist in premis but are not used in our SIP spec
         # linking_event_identifiers
@@ -202,16 +202,6 @@ class PremisFiles:
                     )
                 except StopIteration:
                     object = TemporaryObject(identifiers=[object_id])
-
-                # Bug in Pydanintic-xml instanciates a list instead of tuple
-                # when the the tuple/list is empty
-                if type(linking_object_id.roles) is list:
-                    linking_object_id = LinkingObjectIdentifier(
-                        type=linking_object_id.type,
-                        value=linking_object_id.value,
-                        roles=(),
-                        simple_link=linking_object_id.simple_link,
-                    )
 
                 self.object_map[linking_object_id] = ObjectLink(
                     object=object,

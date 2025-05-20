@@ -84,6 +84,14 @@ class ObjectLink(BaseModel):
     object: PremisObject | TemporaryObject
     roles: tuple[StringPlusAuthority, ...]
 
+    @property
+    def is_source(self):
+        return any((role.value_uri == EventRelObjRole.sou for role in self.roles))
+
+    @property
+    def is_result(self):
+        return any((role.value_uri == EventRelObjRole.out for role in self.roles))
+
 
 class PremisFiles:
     package: Premis
@@ -410,16 +418,10 @@ class PremisFiles:
             outcome = outcome[0]
 
             object_links = self.get_objects_from_ids(event.linking_object_identifiers)
-            is_source: Callable[[ObjectLink], bool] = lambda obj: any(
-                (role.value_uri == EventRelObjRole.sou for role in obj.roles)
-            )
-            is_result: Callable[[ObjectLink], bool] = lambda obj: any(
-                (role.value_uri == EventRelObjRole.out for role in obj.roles)
-            )
             source = [
                 Reference(id=obj_link.object.uuid.value)
                 for obj_link in object_links
-                if is_source(obj_link)
+                if obj_link.is_source
             ]
             result = [
                 (
@@ -428,7 +430,7 @@ class PremisFiles:
                     else Object(id=obj_link.object.uuid.value)
                 )
                 for obj_link in object_links
-                if is_result(obj_link)
+                if obj_link.is_result
             ]
 
             events.append(

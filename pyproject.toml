@@ -8,7 +8,8 @@ dependencies = [
     "viaa-chassis",
     "pulsar-client",
     "lxml==5.4.0",
-    "python-dateutil==2.9.0.post0"
+    "python-dateutil==2.9.0.post0",
+    "sipin-eark-models",
 ]
 classifiers = [
   "Development Status :: 3 - Alpha",

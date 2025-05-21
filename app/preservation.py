@@ -28,7 +28,7 @@ from sippy.vocabulary import Represents, haObj
 
 from app.mets import METS, parse_mets
 from app.utils import ParseException
-from app.premis import (
+from eark_models.premis import (
     AgentIdentifier,
     Event as PremisEvent,
     LinkingAgentIdentifier,
@@ -425,7 +425,7 @@ class PremisFiles:
 
             events.append(
                 Event(
-                    id=event.identifier.value.innerText,
+                    id=event.identifier.value,
                     type=type,
                     was_associated_with=was_associated_with,
                     started_at_time=DateTime(value=datetime),

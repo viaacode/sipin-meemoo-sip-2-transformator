@@ -321,10 +321,23 @@ class PremisFiles:
                     if rel.sub_type.innerText in Represents
                 )
             )
+
+            is_x_copy = lambda x: relationship_to_entity.sub_type.innerText == x
+            is_master = is_x_copy(Represents.is_master_copy_of)
+            is_mezzanine = is_x_copy(Represents.is_mezzanine_copy_of)
+            is_access = is_x_copy(Represents.is_access_copy_of)
+            is_transcription = is_x_copy(Represents.is_transcription_copy_of)
+            reference = Reference(id=relationship_to_entity.related_object_uuid)
+
             digital = DigitalRepresentation(
                 id=repr.uuid.value,
                 represents=Reference(id=relationship_to_entity.related_object_uuid),
                 includes=files,
+                name=LangStr(nl="Digital Representation"),
+                is_master_copy_of=reference if is_master else None,
+                is_mezzanine_copy_of=reference if is_mezzanine else None,
+                is_access_copy_of=reference if is_access else None,
+                is_transcription_copy_of=reference if is_transcription else None,
             )
             digital_representations.append(digital)
 

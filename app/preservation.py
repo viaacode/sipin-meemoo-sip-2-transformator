@@ -8,10 +8,8 @@ from sippy.descriptive import Organization, Person
 from sippy.events import (
     Agent,
     Event,
-    EventAgentRole,
     EventClass,
     EventOutcome,
-    EventRelObjRole,
     SoftwareAgent,
 )
 from sippy.objects import (
@@ -24,7 +22,7 @@ from sippy.objects import (
     Reference,
 )
 from sippy.utils import DateTime, LangStr, NonNegativeInt, URIRef
-from sippy.vocabulary import Represents, haObj
+from sippy.vocabulary import Represents
 
 from app.mets import METS, parse_mets
 from app.utils import ParseException
@@ -64,11 +62,11 @@ class AgentLink(BaseModel):
 
     @property
     def is_implementer(self) -> bool:
-        return any([role.value_uri == EventAgentRole.imp for role in self.roles])
+        return any([role.innerText == "implementer" for role in self.roles])
 
     @property
     def is_executer(self) -> bool:
-        return any([role.value_uri == EventAgentRole.exe for role in self.roles])
+        return any([role.innerText == "executer" for role in self.roles])
 
     @property
     def has_no_role(self) -> bool:
@@ -86,11 +84,11 @@ class ObjectLink(BaseModel):
 
     @property
     def is_source(self):
-        return any((role.value_uri == EventRelObjRole.sou for role in self.roles))
+        return any((role.innerText == "source" for role in self.roles))
 
     @property
     def is_result(self):
-        return any((role.value_uri == EventRelObjRole.out for role in self.roles))
+        return any((role.innerText == "outcome" for role in self.roles))
 
 
 class PremisFiles:
@@ -262,10 +260,10 @@ class PremisFiles:
             if carrier and rel.related_object_uuid != carrier.id
         ]
 
-        has_x_copy: Callable[[haObj], list[Reference]] = lambda x: [
+        has_x_copy: Callable[[str], list[Reference]] = lambda x: [
             Reference(id=rel.related_object_uuid)
             for rel in digital_relationships
-            if rel.sub_type.value_uri == x
+            if rel.sub_type.innerText == x
         ]
 
         return {
@@ -273,10 +271,10 @@ class PremisFiles:
             "primary_identifier": primary_identifiers,
             "local_identifier": local_identifiers,
             "has_carrier_copy": Reference(id=carrier.id) if carrier else None,
-            "has_master_copy": has_x_copy(haObj.hasMasterCopy),
-            "has_mezzanine_copy": has_x_copy(haObj.hasMasterCopy),
-            "has_access_copy": has_x_copy(haObj.hasMasterCopy),
-            "has_transcription_copy": has_x_copy(haObj.hasMasterCopy),
+            "has_master_copy": has_x_copy("has master copy"),
+            "has_mezzanine_copy": has_x_copy("has mezzanine copy"),
+            "has_access_copy": has_x_copy("has access copy"),
+            "has_transcription_copy": has_x_copy("has transcription copy"),
         }
 
     def get_carrier_representation(self) -> CarrierRepresentation | None:
@@ -326,7 +324,7 @@ class PremisFiles:
                 (
                     rel
                     for rel in repr.relationships
-                    if rel.sub_type.value_uri in Represents
+                    if rel.sub_type.innerText in Represents
                 )
             )
             digital = DigitalRepresentation(
@@ -342,7 +340,7 @@ class PremisFiles:
         events = []
         premis_events = self.package.events
         for event in premis_events:
-            type = cast(EventClass, event.type.value_uri)
+            type = cast(EventClass, map_event_type_to_uri(event.type.innerText))
             datetime = dateutil.parser.parse(event.datetime)
 
             agent_links = self.get_agents_from_ids(event.linking_agent_identifiers)
@@ -402,13 +400,14 @@ class PremisFiles:
                 ]
             )
             outcome = [
-                info.outcome.value_uri
+                info.outcome.innerText
                 for info in event.outcome_information
-                if info.outcome and info.outcome.value_uri
+                if info.outcome
             ]
             if len(outcome) > 1:
                 raise ParseException("Only one outcome per event is supported.")
             outcome = outcome[0]
+            outcome = map_outcome_to_uri(outcome)
 
             object_links = self.get_objects_from_ids(event.linking_object_identifiers)
             source = [
@@ -448,3 +447,19 @@ class PremisFiles:
             )
 
         return events
+
+
+def map_outcome_to_uri(outcome: str) -> str:
+    match outcome:
+        case "success":
+            return "http://id.loc.gov/vocabulary/preservation/eventOutcome/suc"
+        case "fail":
+            return "http://id.loc.gov/vocabulary/preservation/eventOutcome/fai"
+        case "warning":
+            return "http://id.loc.gov/vocabulary/preservation/eventOutcome/war"
+
+    raise ParseException("Event outcome must be one of success, fail or warning.")
+
+
+def map_event_type_to_uri(type: str) -> str:
+    return "https://data.hetarchief.be/id/event-type/" + type

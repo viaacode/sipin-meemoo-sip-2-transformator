@@ -17,12 +17,14 @@ from sippy.objects import (
     CarrierRepresentation,
     DigitalRepresentation,
     File,
+    FileFormat,
+    Fixity,
     LocalIdentifier,
     Object,
     Reference,
 )
 from sippy.utils import DateTime, LangStr, NonNegativeInt, URIRef
-from sippy.vocabulary import Represents
+from sippy.vocabulary import Format, Represents
 
 from app.mets import METS, parse_mets
 from app.utils import ParseException
@@ -36,6 +38,8 @@ from eark_models.premis import (
     Agent as PremisAgent,
     Object as PremisObject,
     StringPlusAuthority,
+    Format as PremisFormat,
+    File as PremisFile,
 )
 
 
@@ -309,18 +313,8 @@ class PremisFiles:
         digital_representations = []
         for repr_premis in self.representations:
             repr = repr_premis.representation
-
-            files = []
-            for file in repr_premis.files:
-                size = next((c.size for c in file.characteristics if c.size))
-                files.append(
-                    File(
-                        is_included_in=[Reference(id=repr.uuid.value)],
-                        size=NonNegativeInt(value=size),
-                    )
-                )
-
-            rep = next(
+            files = [parse_file(file, repr.uuid.value) for file in repr_premis.files]
+            relationship_to_entity = next(
                 (
                     rel
                     for rel in repr.relationships
@@ -329,7 +323,7 @@ class PremisFiles:
             )
             digital = DigitalRepresentation(
                 id=repr.uuid.value,
-                represents=Reference(id=rep.related_object_uuid),
+                represents=Reference(id=relationship_to_entity.related_object_uuid),
                 includes=files,
             )
             digital_representations.append(digital)
@@ -449,6 +443,27 @@ class PremisFiles:
         return events
 
 
+def parse_file(file: PremisFile, repr_id: str) -> File:
+    size = next((c.size for c in file.characteristics if c.size))
+    fixity = next(iter(next((c.fixity for c in file.characteristics))))
+    format = next(iter(next(c.format for c in file.characteristics)))
+
+    return File(
+        id=file.uuid.value,
+        is_included_in=[Reference(id=repr_id)],
+        size=NonNegativeInt(value=size),
+        name=LangStr(nl="File"),
+        original_name=(file.original_name.value if file.original_name else None),
+        fixity=Fixity(
+            type=map_fixity_digest_algorithm_to_uri(
+                fixity.message_digest_algorithm.innerText
+            ),
+            value=fixity.message_digest,
+        ),
+        format=FileFormat(id=map_file_format_to_uri(format)),
+    )
+
+
 def map_outcome_to_uri(outcome: str) -> str:
     match outcome:
         case "success":
@@ -463,3 +478,22 @@ def map_outcome_to_uri(outcome: str) -> str:
 
 def map_event_type_to_uri(type: str) -> str:
     return "https://data.hetarchief.be/id/event-type/" + type
+
+
+def map_fixity_digest_algorithm_to_uri(algorithm: str) -> str:
+    if algorithm == "md5" or algorithm == "MD5":
+        return (
+            "http://id.loc.gov/vocabulary/preservation/cryptographicHashFunctions/md5"
+        )
+
+    raise ParseException(f"Unknown fixity message digest algorithm {algorithm}")
+
+
+def map_file_format_to_uri(format: PremisFormat) -> str:
+    if not format.registry:
+        raise ParseException("Format registry must be present")
+    if format.registry.name.innerText != "PRONOM":
+        raise ParseException("Only the PRONOM format registry is supported")
+
+    format_key = format.registry.key.innerText
+    return "https://www.nationalarchives.gov.uk/pronom/" + format_key

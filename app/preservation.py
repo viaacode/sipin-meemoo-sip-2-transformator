@@ -283,8 +283,11 @@ class PremisFiles:
         """
         Extract the carrier representation from the package PREMIS if present.
         """
-        entity = self.package.entity
-        entity_id = entity.pid.value if entity.pid else entity.uuid.value
+        rels = self.package.representation.relationships
+        entity_rel = next(
+            rel for rel in rels if rel.sub_type.innerText == "is carrier copy of"
+        )
+        entity_id = entity_rel.related_object_uuid
 
         try:
             carrier = self.package.representation

@@ -2,7 +2,6 @@ from pathlib import Path
 
 from sippy.sip import SIP, IntellectualEntity
 from sippy.utils import Config, String
-from sippy.vocabulary import EntityClass
 from app.descriptive import parse_descriptive
 from app.mets import parse_mets
 from app.preservation import PremisFiles
@@ -23,16 +22,15 @@ def parse_sip(path) -> SIP:
     descriptive = parse_descriptive(package_mets)
 
     ie = IntellectualEntity(
-        type=EntityClass.entity,  # TODO
-        maintainer=package_mets.get_content_partner(),
+        type=package_mets.entity_type,
+        maintainer=package_mets.content_partner,
         **structural,
         **descriptive,
     )
 
-    events = premis_files.parse_events()
-
     return SIP(
         entity=ie,
-        events=events,
-        premis_agents=[],
+        events=premis_files.parse_events(),
+        metsHdr=package_mets.metsHdr,
+        premis_agents=[],  # TODO
     )

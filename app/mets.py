@@ -15,6 +15,7 @@ from sippy.sip import (
     METSRole,
 )
 from sippy.utils import LangStr
+from sippy.vocabulary import EntityClass
 
 from app.utils import (
     ParseException,
@@ -26,12 +27,14 @@ from app.utils import (
 
 
 class METS(BaseModel):
+    other_content_information_type: str
     metsHdr: METSHdr
     descriptive_metadata: Path | None
     administrative_metadata: Path | None
     representations: list[Path]
 
-    def get_content_partner(self) -> ContentPartner:
+    @property
+    def content_partner(self) -> ContentPartner:
         """
         Gets the CP from the METS agents.
         """
@@ -49,6 +52,17 @@ class METS(BaseModel):
             identifier=note.value,
             pref_label=LangStr.codes(nl=archivist[0].name),
         )
+
+    @property
+    def entity_type(self) -> EntityClass:
+        match self.other_content_information_type:
+            case "https://data.hetarchief.be/id/sip/2.1/film":
+                return EntityClass.film
+            # TODO: other cases, what should the mapping be?
+            case _:
+                raise ParseException(
+                    f"Unknown OTHERCONTENTINFORMATIONTYPE {self.other_content_information_type}."
+                )
 
 
 def parse_mets(mets_path: Path) -> METS:
@@ -73,7 +87,12 @@ def parse_mets(mets_path: Path) -> METS:
         "mets:amdSec/mets:digiprovMD/mets:mdRef[@LOCTYPE='URL' and @xlink:type='simple']/@xlink:href",
     )
 
+    other_content_information_type = xpath_text(
+        mets_xml, "@csip:OTHERCONTENTINFORMATIONTYPE"
+    )
+
     return METS(
+        other_content_information_type=other_content_information_type,
         metsHdr=METSHdr(agents=agents),
         descriptive_metadata=(
             root.joinpath(dmd_href) if dmd_href is not None else dmd_href

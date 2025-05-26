@@ -159,13 +159,6 @@ class PremisFiles:
 
         for event in events:
             for linking_agent_id in event.linking_agent_identifiers:
-                # We can assume linking_agents to be of type `LinkingAgentIdentifier` here,
-                # as that is the only value allowed by the PREMIS xsd
-                if isinstance(linking_agent_id, AgentLink):
-                    raise ParseException(
-                        "Invalid premis file found while resolving links or `resolve_links` called twice."
-                    )
-
                 agent_id = AgentIdentifier(
                     type=linking_agent_id.type,
                     value=linking_agent_id.value,
@@ -183,11 +176,6 @@ class PremisFiles:
                 )
 
             for linking_object_id in event.linking_object_identifiers:
-                if isinstance(linking_object_id, ObjectLink):
-                    raise ParseException(
-                        "Invalid premis file found while resolving links or `resolve_links` called twice."
-                    )
-
                 object_id = ObjectIdentifier(
                     type=linking_object_id.type,
                     value=linking_object_id.value,

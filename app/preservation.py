@@ -24,7 +24,7 @@ from sippy.objects import (
     Reference,
 )
 from sippy.utils import DateTime, LangStr, NonNegativeInt, URIRef
-from sippy.vocabulary import Format, Represents
+from sippy.vocabulary import Represents, RepresentsDigital
 
 from app.mets import METS, parse_mets
 from app.utils import ParseException
@@ -255,13 +255,10 @@ class PremisFiles:
         # Films have a carrier representation in the package PREMIS
         carrier = self.get_carrier_representation()
 
-        # TODO: the SIP spec should be changed so that the carrier representation must
-        # use the `has_carrier_copy` relationship, then the filtering of digital relationships
-        # can be done easier
         digital_relationships = [
             rel
             for rel in entity.relationships
-            if carrier and rel.related_object_uuid != carrier.id
+            if rel.sub_type.innerText in RepresentsDigital
         ]
 
         has_x_copy: Callable[[str], list[Reference]] = lambda x: [

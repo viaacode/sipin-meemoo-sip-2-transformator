@@ -26,22 +26,12 @@ from sippy.objects import (
 )
 from sippy.utils import DateTime, LangStr, NonNegativeInt, URIRef
 from sippy.vocabulary import Represents, RepresentsDigital
+from sippy.sip import PremisAgent
 
 from app.mets import METS, parse_mets
 from app.utils import ParseException
-from eark_models.premis import (
-    AgentIdentifier,
-    Event as PremisEvent,
-    LinkingAgentIdentifier,
-    LinkingObjectIdentifier,
-    ObjectIdentifier,
-    Premis,
-    Agent as PremisAgent,
-    Object as PremisObject,
-    StringPlusAuthority,
-    Format as PremisFormat,
-    File as PremisFile,
-)
+
+from eark_models import premis
 
 
 class TemporaryObject(BaseModel):
@@ -49,7 +39,7 @@ class TemporaryObject(BaseModel):
     Utility class used when resolving linking object identifiers.
     """
 
-    identifiers: list[ObjectIdentifier]
+    identifiers: list[premis.ObjectIdentifier]
 
     @property
     def uuid(self):
@@ -62,8 +52,8 @@ class AgentLink(BaseModel):
     It is used for to replace `LinkingAgentIdentifiers` by the actual `Agent` that is referenced.
     """
 
-    agent: PremisAgent
-    roles: tuple[StringPlusAuthority, ...]
+    agent: premis.Agent
+    roles: tuple[premis.StringPlusAuthority, ...]
 
     @property
     def is_implementer(self) -> bool:
@@ -88,8 +78,8 @@ class ObjectLink(BaseModel):
     It is used for to replace `LinkingObjectIdentifiers` by the actual `Object` that is referenced.
     """
 
-    object: PremisObject | TemporaryObject
-    roles: tuple[StringPlusAuthority, ...]
+    object: premis.Object | TemporaryObject
+    roles: tuple[premis.StringPlusAuthority, ...]
 
     @property
     def is_source(self):
@@ -101,22 +91,26 @@ class ObjectLink(BaseModel):
 
 
 class AgentMap(RootModel):
-    root: dict[LinkingAgentIdentifier, AgentLink]
+    root: dict[premis.LinkingAgentIdentifier, AgentLink]
 
-    def from_ids(self, agent_ids: list[LinkingAgentIdentifier]) -> list[AgentLink]:
+    def from_ids(
+        self, agent_ids: list[premis.LinkingAgentIdentifier]
+    ) -> list[AgentLink]:
         return [self.root[agent_id] for agent_id in agent_ids]
 
 
 class ObjectMap(RootModel):
-    root: dict[LinkingObjectIdentifier, ObjectLink]
+    root: dict[premis.LinkingObjectIdentifier, ObjectLink]
 
-    def from_ids(self, object_ids: list[LinkingObjectIdentifier]) -> list[ObjectLink]:
+    def from_ids(
+        self, object_ids: list[premis.LinkingObjectIdentifier]
+    ) -> list[ObjectLink]:
         return [self.root[object_id] for object_id in object_ids]
 
 
 class PremisFiles:
-    package: Premis
-    representations: list[Premis]
+    package: premis.Premis
+    representations: list[premis.Premis]
     agent_map: AgentMap
     object_map: ObjectMap
 
@@ -133,7 +127,7 @@ class PremisFiles:
             raise ParseException("No package PREMIS found.")
 
         premis_xml = etree.parse(package_mets.administrative_metadata).getroot()
-        package_premis = Premis.from_xml_tree(premis_xml)
+        package_premis = premis.Premis.from_xml_tree(premis_xml)
         return package_premis
 
     def parse_representation_files(self, package_mets: METS):
@@ -146,7 +140,7 @@ class PremisFiles:
             if repr_mets.administrative_metadata is None:
                 continue
             premis_xml = etree.parse(repr_mets.administrative_metadata).getroot()
-            repr_premis = Premis.from_xml_tree(premis_xml)
+            repr_premis = premis.Premis.from_xml_tree(premis_xml)
             representations.append(repr_premis)
         return representations
 
@@ -158,17 +152,17 @@ class PremisFiles:
         # linking_event_identifiers
         # linking_rights_statement_identifiers
 
-        all_objects: list[PremisObject] = []
+        all_objects: list[premis.Object] = []
         all_objects.extend(self.package.objects)
         for repr in self.representations:
             all_objects.extend(repr.objects)
 
-        all_agents: list[PremisAgent] = []
+        all_agents: list[premis.Agent] = []
         all_agents.extend(self.package.agents)
         for repr in self.representations:
             all_agents.extend(repr.agents)
 
-        events: list[PremisEvent] = []
+        events: list[premis.Event] = []
         events.extend(self.package.events)
         for repr in self.representations:
             events.extend(repr.events)
@@ -178,7 +172,7 @@ class PremisFiles:
 
         for event in events:
             for linking_agent_id in event.linking_agent_identifiers:
-                agent_id = AgentIdentifier(
+                agent_id = premis.AgentIdentifier(
                     type=linking_agent_id.type,
                     value=linking_agent_id.value,
                 )
@@ -195,7 +189,7 @@ class PremisFiles:
                 )
 
             for linking_object_id in event.linking_object_identifiers:
-                object_id = ObjectIdentifier(
+                object_id = premis.ObjectIdentifier(
                     type=linking_object_id.type,
                     value=linking_object_id.value,
                 )
@@ -340,7 +334,7 @@ class PremisFiles:
     def parse_events(self) -> list[Event]:
         return [self.parse_event(event) for event in self.package.events]
 
-    def parse_event(self, event: PremisEvent):
+    def parse_event(self, event: premis.Event):
         type = cast(EventClass, map_event_type_to_uri(event.type.innerText))
         datetime = dateutil.parser.parse(event.datetime)
 
@@ -447,8 +441,19 @@ class PremisFiles:
             instrument=instrument,
         )
 
+    def parse_premis_agents(self) -> list[PremisAgent]:
+        return [
+            PremisAgent(
+                identifier=agent.uuid.value,
+                name=agent.name.innerText,
+                type=agent.type.innerText,
+            )
+            for agent in self.package.agents
+            if any(id.is_uuid for id in agent.identifiers)
+        ]
 
-def parse_file(file: PremisFile, repr_id: str) -> File:
+
+def parse_file(file: premis.File, repr_id: str) -> File:
     size = next((c.size for c in file.characteristics if c.size))
     fixity = next(iter(next((c.fixity for c in file.characteristics))))
     format = next(iter(next(c.format for c in file.characteristics)))
@@ -494,7 +499,7 @@ def map_fixity_digest_algorithm_to_uri(algorithm: str) -> str:
     raise ParseException(f"Unknown fixity message digest algorithm {algorithm}")
 
 
-def map_file_format_to_uri(format: PremisFormat) -> str:
+def map_file_format_to_uri(format: premis.Format) -> str:
     if not format.registry:
         raise ParseException("Format registry must be present")
     if format.registry.name.innerText != "PRONOM":

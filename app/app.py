@@ -32,5 +32,5 @@ def parse_sip(path) -> SIP:
         entity=ie,
         events=premis_files.parse_events(),
         metsHdr=package_mets.metsHdr,
-        premis_agents=[],  # TODO
+        premis_agents=premis_files.parse_premis_agents(),
     )

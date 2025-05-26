@@ -2,7 +2,7 @@ from typing import Any, Callable, cast
 
 from lxml import etree
 import dateutil.parser
-from pydantic import BaseModel
+from pydantic import BaseModel, RootModel
 
 from sippy.descriptive import Organization, Person
 from sippy.events import (
@@ -95,11 +95,25 @@ class ObjectLink(BaseModel):
         return any((role.innerText == "outcome" for role in self.roles))
 
 
+class AgentMap(RootModel):
+    root: dict[LinkingAgentIdentifier, AgentLink]
+
+    def from_ids(self, agent_ids: list[LinkingAgentIdentifier]) -> list[AgentLink]:
+        return [self.root[agent_id] for agent_id in agent_ids]
+
+
+class ObjectMap(RootModel):
+    root: dict[LinkingObjectIdentifier, ObjectLink]
+
+    def from_ids(self, object_ids: list[LinkingObjectIdentifier]) -> list[ObjectLink]:
+        return [self.root[object_id] for object_id in object_ids]
+
+
 class PremisFiles:
     package: Premis
     representations: list[Premis]
-    agent_map: dict[LinkingAgentIdentifier, AgentLink]
-    object_map: dict[LinkingObjectIdentifier, ObjectLink]
+    agent_map: AgentMap
+    object_map: ObjectMap
 
     def __init__(self, package_mets: METS):
         self.package = self.parse_package_file(package_mets)
@@ -154,8 +168,8 @@ class PremisFiles:
         for repr in self.representations:
             events.extend(repr.events)
 
-        self.agent_map = {}
-        self.object_map = {}
+        self.agent_map = AgentMap({})
+        self.object_map = ObjectMap({})
 
         for event in events:
             for linking_agent_id in event.linking_agent_identifiers:
@@ -170,7 +184,7 @@ class PremisFiles:
                     agent for agent in all_agents if includes_id(agent, agent_id)
                 )
 
-                self.agent_map[linking_agent_id] = AgentLink(
+                self.agent_map.root[linking_agent_id] = AgentLink(
                     agent=agent,
                     roles=linking_agent_id.roles,
                 )
@@ -193,20 +207,10 @@ class PremisFiles:
                 except StopIteration:
                     object = TemporaryObject(identifiers=[object_id])
 
-                self.object_map[linking_object_id] = ObjectLink(
+                self.object_map.root[linking_object_id] = ObjectLink(
                     object=object,
                     roles=linking_object_id.roles,
                 )
-
-    def get_agents_from_ids(
-        self, agent_ids: list[LinkingAgentIdentifier]
-    ) -> list[AgentLink]:
-        return [self.agent_map[agent_id] for agent_id in agent_ids]
-
-    def get_objects_from_ids(
-        self, object_ids: list[LinkingObjectIdentifier]
-    ) -> list[ObjectLink]:
-        return [self.object_map[object_id] for object_id in object_ids]
 
     def get_structural_info(self) -> dict[str, Any]:
         """
@@ -329,116 +333,102 @@ class PremisFiles:
         return digital_representations
 
     def parse_events(self) -> list[Event]:
-        events = []
-        premis_events = self.package.events
-        for event in premis_events:
-            type = cast(EventClass, map_event_type_to_uri(event.type.innerText))
-            datetime = dateutil.parser.parse(event.datetime)
+        return [self.parse_event(event) for event in self.package.events]
 
-            agent_links = self.get_agents_from_ids(event.linking_agent_identifiers)
+    def parse_event(self, event: PremisEvent):
+        type = cast(EventClass, map_event_type_to_uri(event.type.innerText))
+        datetime = dateutil.parser.parse(event.datetime)
 
-            impelementer_agent = next(
-                (
-                    agent_link.agent
-                    for agent_link in agent_links
-                    if agent_link.is_implementer
+        agent_links = self.agent_map.from_ids(event.linking_agent_identifiers)
+
+        impelementer_agent = next(
+            (ag_link.agent for ag_link in agent_links if ag_link.is_implementer)
+        )
+        executer_agent = next(
+            (agent_link.agent for agent_link in agent_links if agent_link.is_executer),
+            None,
+        )
+        executed_by = (
+            SoftwareAgent(
+                id=executer_agent.primary_identifier.value,
+                name=LangStr(nl=executer_agent.name.innerText),
+                model=None,
+                serial_number=None,
+                version=None,
+            )
+            if executer_agent
+            else None
+        )
+
+        associated_agents = [
+            agent_link.agent for agent_link in agent_links if agent_link.has_no_role
+        ]
+
+        # TODO: could also be an organization
+        # TODO: where to put agent type?
+        was_associated_with: list[Agent] = [
+            Person(
+                id=agent.uuid.value,
+                name=LangStr(nl=agent.name.innerText),
+                birth_date=None,
+                death_date=None,
+            )
+            for agent in associated_agents
+        ]
+
+        note = "\\n".join(
+            [info.detail for info in event.detail_information if info.detail]
+        )
+        outcome_note = "\\n".join(
+            [
+                "\\n".join(
+                    [detail.note for detail in info.outcome_detail if detail.note]
                 )
-            )
-            executer_agent = next(
-                (
-                    agent_link.agent
-                    for agent_link in agent_links
-                    if agent_link.is_executer
-                ),
-                None,
-            )
-            executed_by = (
-                SoftwareAgent(
-                    id=executer_agent.primary_identifier.value,
-                    name=LangStr(nl=executer_agent.name.innerText),
-                    model=None,
-                    serial_number=None,
-                    version=None,
-                )
-                if executer_agent
-                else None
-            )
-
-            associated_agents = [
-                agent_link.agent for agent_link in agent_links if agent_link.has_no_role
-            ]
-
-            # TODO: could also be an organization
-            # TODO: where to put agent type?
-            was_associated_with: list[Agent] = [
-                Person(
-                    id=agent.uuid.value,
-                    name=LangStr(nl=agent.name.innerText),
-                    birth_date=None,
-                    death_date=None,
-                )
-                for agent in associated_agents
-            ]
-
-            note = "\\n".join(
-                [info.detail for info in event.detail_information if info.detail]
-            )
-            outcome_note = "\\n".join(
-                [
-                    "\\n".join(
-                        [detail.note for detail in info.outcome_detail if detail.note]
-                    )
-                    for info in event.outcome_information
-                ]
-            )
-            outcome = [
-                info.outcome.innerText
                 for info in event.outcome_information
-                if info.outcome
             ]
-            if len(outcome) > 1:
-                raise ParseException("Only one outcome per event is supported.")
-            outcome = outcome[0]
-            outcome = map_outcome_to_uri(outcome)
+        )
+        outcome = [
+            info.outcome.innerText for info in event.outcome_information if info.outcome
+        ]
+        if len(outcome) > 1:
+            raise ParseException("Only one outcome per event is supported.")
+        outcome = outcome[0]
+        outcome = map_outcome_to_uri(outcome)
 
-            object_links = self.get_objects_from_ids(event.linking_object_identifiers)
-            source = [
+        object_links = self.object_map.from_ids(event.linking_object_identifiers)
+        source = [
+            Reference(id=obj_link.object.uuid.value)
+            for obj_link in object_links
+            if obj_link.is_source
+        ]
+        result = [
+            (
                 Reference(id=obj_link.object.uuid.value)
-                for obj_link in object_links
-                if obj_link.is_source
-            ]
-            result = [
-                (
-                    Reference(id=obj_link.object.uuid.value)
-                    if isinstance(obj_link.object, TemporaryObject)
-                    else Object(id=obj_link.object.uuid.value)
-                )
-                for obj_link in object_links
-                if obj_link.is_result
-            ]
-
-            events.append(
-                Event(
-                    id=event.identifier.value,
-                    type=type,
-                    was_associated_with=was_associated_with,
-                    started_at_time=DateTime(value=datetime),
-                    ended_at_time=DateTime(value=datetime),
-                    implemented_by=Organization(
-                        identifier=impelementer_agent.primary_identifier.value,
-                        pref_label=LangStr(nl=impelementer_agent.name.innerText),
-                    ),
-                    note=note if note else None,
-                    outcome=URIRef(id=cast(EventOutcome, outcome)),
-                    outcome_note=outcome_note if outcome_note else None,
-                    executed_by=executed_by,
-                    source=source,
-                    result=result,
-                    # TODO: instrument
-                )
+                if isinstance(obj_link.object, TemporaryObject)
+                else Object(id=obj_link.object.uuid.value)
             )
+            for obj_link in object_links
+            if obj_link.is_result
+        ]
 
-        return events
+        return Event(
+            id=event.identifier.value,
+            type=type,
+            was_associated_with=was_associated_with,
+            started_at_time=DateTime(value=datetime),
+            ended_at_time=DateTime(value=datetime),
+            implemented_by=Organization(
+                identifier=impelementer_agent.primary_identifier.value,
+                pref_label=LangStr(nl=impelementer_agent.name.innerText),
+            ),
+            note=note if note else None,
+            outcome=URIRef(id=cast(EventOutcome, outcome)),
+            outcome_note=outcome_note if outcome_note else None,
+            executed_by=executed_by,
+            source=source,
+            result=result,
+            # TODO: instrument
+        )
 
 
 def parse_file(file: PremisFile, repr_id: str) -> File:

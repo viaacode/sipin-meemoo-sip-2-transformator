@@ -40,7 +40,7 @@ class XMLLangStr(BaseModel):
         return cls(content=content)
 
 
-class DCTRole(BaseModel):
+class SIPRole(BaseModel):
     role_name: str | None
     name: str
     birth_date: str | None
@@ -98,9 +98,83 @@ class Measurement(BaseModel):
         )
 
 
-class DCSchema(BaseModel):
+CreativeWorkType = Literal[
+    "schema:Episode",
+    "schema:ArchiveComponent",
+    "schema:CreativeWorkSeries",
+    "schema:CreativeWorkSeason",
+    "schema:BroadcastEvent",
+]
 
-    # basic
+
+class SIPEpisode(BaseModel):
+    type: Literal["schema:Episode"]
+    name: str
+
+
+class SIPArchiveComponent(BaseModel):
+    type: Literal["schema:ArchiveComponent"]
+    name: str
+
+
+class SIPCreativeWorkSeries(BaseModel):
+    type: Literal["schema:CreativeWorkSeries"]
+    name: str
+    position: int | None
+    has_parts: list[str]
+
+
+class SIPCreativeWorkSeason(BaseModel):
+    type: Literal["schema:CreativeWorkSeason"]
+    name: str
+    season_number: int | None
+
+
+class SIPBroadcastEvent(BaseModel):
+    type: Literal["schema:BroadcastEvent"]
+    name: str
+
+
+SIPAnyCreativeWork = (
+    SIPEpisode | SIPArchiveComponent | SIPCreativeWorkSeries | SIPCreativeWorkSeason
+)
+
+
+def parse_is_part_of(root: _Element) -> SIPAnyCreativeWork | SIPBroadcastEvent:
+    type = root.get("xsi:type")
+    if type not in typing.get_args(CreativeWorkType):
+        raise ParseException(
+            f"schema:isPartOf must be one of {typing.get_args(CreativeWorkType)}"
+        )
+    type = typing.cast(CreativeWorkType, type)
+    name = parse_text(root, "schema:name")
+
+    match type:
+        case "schema:Episode":
+            return SIPEpisode(type=type, name=name)
+        case "schema:ArchiveComponent":
+            return SIPArchiveComponent(type=type, name=name)
+        case "schema:CreativeWorkSeries":
+            position = parse_optional_text(root, "schema:position")
+            return SIPCreativeWorkSeries(
+                type=type,
+                name=name,
+                position=int(position) if position else None,
+                has_parts=parse_text_list(root, "schema:hasPart/schema:name"),
+            )
+        case "schema:CreativeWorkSeason":
+            season_number = parse_optional_text(root, "schema:seasonNumber")
+            return SIPCreativeWorkSeason(
+                type=type,
+                name=name,
+                season_number=int(season_number) if season_number else None,
+            )
+        case "schema:BroadcastEvent":
+            return SIPBroadcastEvent(type=type, name=name)
+
+
+class DCSchema(BaseModel):
+    # basic profile
     title: XMLLangStr
     alternative: XMLLangStr | None
     # TODO: extend
@@ -109,9 +183,9 @@ class DCSchema(BaseModel):
     abstract: XMLLangStr | None
     created: EDTF
     issued: EDTF | None
-    publisher: list[DCTRole]
-    creator: list[DCTRole]
-    contributor: list[DCTRole]
+    publisher: list[SIPRole]
+    creator: list[SIPRole]
+    contributor: list[SIPRole]
     spatial: list[str]
     temporal: list[str]
     subject: XMLLangStr | None
@@ -119,34 +193,38 @@ class DCSchema(BaseModel):
     license: list[str]
     rights_holder: str | None
     rights: XMLLangStr | None
-    type: list[str]
+    format: str
     height: Measurement | None
     width: Measurement | None
     depth: Measurement | None
     weight: Measurement | None
-    # art_medium
-    # artform
-    # is_part_of
+    art_medium: XMLLangStr | None
+    artform: XMLLangStr | None
+    is_part_of: list[SIPAnyCreativeWork | SIPBroadcastEvent]
 
-    # film
-    # country_of_origin
-    # credit_text
-    # genre
+    # film profile
+    country_of_origin: str | None
+    credit_text: list[str]
+    genre: str | None
 
     @classmethod
     def from_xml(cls, path: str) -> Self:
         root = etree.parse(path).getroot()
-        return cls.deserialize(root)
+        return cls.validate_dc_schema(root)
 
     @classmethod
-    def deserialize(cls, root: _Element) -> Self:
-
+    def validate_dc_schema(cls, root: _Element) -> Self:
         creators = parse_element_list(root, "schema:creator")
         creators += parse_element_list(root, "dcterms:creator")
         publishers = parse_element_list(root, "schema:publisher")
         publishers += parse_element_list(root, "dcterms:publisher")
         contributors = parse_element_list(root, "schema:contributor")
         contributors += parse_element_list(root, "dcterms:contributor")
+
+        is_part_of = [
+            parse_is_part_of(el)
+            for el in root.findall("schema:isPartOf", namespaces=ns)
+        ]
 
         return cls(
             title=XMLLangStr.new(root, "dcterms:title"),
@@ -157,20 +235,26 @@ class DCSchema(BaseModel):
             created=parse_text(root, "dcterms:created"),
             issued=parse_optional_text(root, "dcterms:issued"),
             spatial=parse_text_list(root, "dcterms:spatial"),
-            temporal=parse_text_list(root, "dcterms:termporal"),
+            temporal=parse_text_list(root, "dcterms:temporal"),
             subject=XMLLangStr.optional(root, "dcterms:subject"),
             language=parse_text_list(root, "dcterms:language"),
             license=parse_text_list(root, "dcterms:license"),
             rights_holder=parse_optional_text(root, "dcterms:rightsHolder"),
             rights=XMLLangStr.optional(root, "dcterms:rights"),
-            type=parse_text_list(root, "dcterms:type"),
-            creator=[DCTRole.new(el) for el in creators],
-            publisher=[DCTRole.new(el) for el in publishers],
-            contributor=[DCTRole.new(el) for el in contributors],
+            format=parse_text(root, "dcterms:format"),
+            creator=[SIPRole.new(el) for el in creators],
+            publisher=[SIPRole.new(el) for el in publishers],
+            contributor=[SIPRole.new(el) for el in contributors],
             height=Measurement.new(root, "schema:height"),
             width=Measurement.new(root, "schema:width"),
             depth=Measurement.new(root, "schema:depth"),
             weight=Measurement.new(root, "schema:weight"),
+            art_medium=XMLLangStr.optional(root, "dcterms:artMedium"),
+            artform=XMLLangStr.optional(root, "dcterms:artform"),
+            is_part_of=is_part_of,
+            country_of_origin=parse_optional_text(root, "schema:countryOfOrigin"),
+            credit_text=parse_text_list(root, "schema:creditText"),
+            genre=parse_optional_text(root, "schema:genre"),
         )
 
 

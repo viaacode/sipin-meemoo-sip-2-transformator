@@ -1,16 +1,33 @@
 from typing import Any, Literal
 
 from sippy.descriptive import (
+    AnyCreativeWork,
+    ArchiveComponent,
+    BroadcastEvent,
     Concept,
+    CreativeWorkSeason,
+    CreativeWorkSeries,
+    Episode,
     Person,
     Place,
     QuantitativeValue,
     Role,
     Thing,
 )
-from sippy.utils import DateTime, EDTF_level1, Float, LangStr
+from sippy.utils import DateTime, EDTF_level1, Float, LangStr, String
 
-from app.dc_schema import DCSchema, DCTRole, Measurement, XMLLangStr
+from app.dc_schema import (
+    DCSchema,
+    SIPRole,
+    Measurement,
+    XMLLangStr,
+    SIPAnyCreativeWork,
+    SIPEpisode,
+    SIPArchiveComponent,
+    SIPBroadcastEvent,
+    SIPCreativeWorkSeries,
+    SIPCreativeWorkSeason,
+)
 from app.mets import METS
 from app.utils import ParseException
 
@@ -22,7 +39,7 @@ def to_sippy_lang_str(str: XMLLangStr | None) -> LangStr | None:
 
 
 def to_sippy_role(
-    role: DCTRole, type: Literal["contributor", "creator", "publisher"]
+    role: SIPRole, type: Literal["contributor", "creator", "publisher"]
 ) -> Role:
 
     if role.birth_date or role.death_date:
@@ -77,6 +94,23 @@ def to_sippy_quantitive_value(
     )
 
 
+def to_sippy_creative_work(
+    sip_creative_work: SIPAnyCreativeWork | SIPBroadcastEvent,
+) -> AnyCreativeWork | BroadcastEvent:
+    match sip_creative_work:
+        case SIPBroadcastEvent():
+            return BroadcastEvent()
+        case SIPEpisode():
+            # TODO hardcoded identifier
+            return Episode(name=LangStr(nl=sip_creative_work.name), identifier="")
+        case SIPArchiveComponent():
+            return ArchiveComponent(name=LangStr(nl=sip_creative_work.name))
+        case SIPCreativeWorkSeries():
+            return CreativeWorkSeries(name=LangStr(nl=sip_creative_work.name))
+        case SIPCreativeWorkSeason():
+            return CreativeWorkSeason(name=LangStr(nl=sip_creative_work.name))
+
+
 def parse_descriptive(mets: METS) -> dict[str, Any]:
 
     if mets.descriptive_metadata is None:
@@ -105,7 +139,7 @@ def parse_descriptive(mets: METS) -> dict[str, Any]:
             for contributor in dc_schema.contributor
         ],
         "spatial": [Place(name=LangStr(nl=s)) for s in dc_schema.spatial],
-        # # "temporal": TODO
+        "temporal": [LangStr(nl=t) for t in dc_schema.temporal],
         "keywords": [to_sippy_lang_str(dc_schema.subject)] if dc_schema.subject else [],
         "in_language": dc_schema.language,
         # # TODO: is this simple mapping for licenses ok?
@@ -119,13 +153,16 @@ def parse_descriptive(mets: METS) -> dict[str, Any]:
             else []
         ),
         "rights": ([to_sippy_lang_str(dc_schema.rights)] if dc_schema.rights else []),
-        # TODO: moet type naar format gemapped worden? format heeft `1..1` en type `0..1`
-        # "format": dc_schema.type,
+        "format": String(value=dc_schema.format),
         "height": to_sippy_quantitive_value(dc_schema.height),
         "width": to_sippy_quantitive_value(dc_schema.width),
         "depth": to_sippy_quantitive_value(dc_schema.depth),
         "weight": to_sippy_quantitive_value(dc_schema.weight),
-        # "art_medium":
-        # "artform"
-        # "schema_is_part_of"
+        "art_medium": (
+            [to_sippy_lang_str(dc_schema.art_medium)] if dc_schema.art_medium else []
+        ),
+        "artform": [to_sippy_lang_str(dc_schema.artform)] if dc_schema.artform else [],
+        "schema_is_part_of": [
+            to_sippy_creative_work(cw) for cw in dc_schema.is_part_of
+        ],
     }

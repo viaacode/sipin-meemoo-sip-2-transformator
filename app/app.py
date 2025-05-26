@@ -24,7 +24,6 @@ def parse_sip(path) -> SIP:
 
     ie = IntellectualEntity(
         type=EntityClass.entity,  # TODO
-        format=String(value="film"),  # TODO
         maintainer=package_mets.get_content_partner(),
         **structural,
         **descriptive,

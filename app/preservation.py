@@ -10,6 +10,7 @@ from sippy.events import (
     Event,
     EventClass,
     EventOutcome,
+    HardwareAgent,
     SoftwareAgent,
 )
 from sippy.objects import (
@@ -71,6 +72,10 @@ class AgentLink(BaseModel):
     @property
     def is_executer(self) -> bool:
         return any([role.innerText == "executer" for role in self.roles])
+
+    @property
+    def is_instrument(self) -> bool:
+        return any([role.innerText == "instrument" for role in self.roles])
 
     @property
     def has_no_role(self) -> bool:
@@ -375,6 +380,18 @@ class PremisFiles:
             )
             for agent in associated_agents
         ]
+        instrument_agents = [
+            agent_link.agent for agent_link in agent_links if agent_link.is_instrument
+        ]
+        instrument = [
+            HardwareAgent(
+                name=LangStr(nl=ag.name.innerText),
+                model=None,
+                serial_number=None,
+                version=None,
+            )
+            for ag in instrument_agents
+        ]
 
         note = "\\n".join(
             [info.detail for info in event.detail_information if info.detail]
@@ -427,7 +444,7 @@ class PremisFiles:
             executed_by=executed_by,
             source=source,
             result=result,
-            # TODO: instrument
+            instrument=instrument,
         )
 
 

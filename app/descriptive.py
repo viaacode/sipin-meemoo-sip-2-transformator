@@ -165,4 +165,5 @@ def parse_descriptive(mets: METS) -> dict[str, Any]:
         "schema_is_part_of": [
             to_sippy_creative_work(cw) for cw in dc_schema.is_part_of
         ],
+        "credit_text": [LangStr(nl=s) for s in dc_schema.credit_text],
     }

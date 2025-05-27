@@ -1,4 +1,4 @@
-from typing import Any, Callable, cast
+from typing import Any, cast
 
 from lxml import etree
 import dateutil.parser
@@ -24,8 +24,8 @@ from sippy.objects import (
     Object,
     Reference,
 )
-from sippy.utils import DateTime, LangStr, NonNegativeInt, URIRef
-from sippy.vocabulary import Represents, RepresentsDigital
+from sippy.utils import DateTime, LangStr, NonNegativeInt, URIRef, uuid4
+from sippy.vocabulary import IsRepresentedBy, Represents
 from sippy.sip import PremisAgent
 
 from app.mets import METS, parse_mets
@@ -119,7 +119,7 @@ class PremisFiles:
         self.representations = self.parse_representation_files(package_mets)
         self.resolve_links()
 
-    def parse_package_file(self, package_mets: METS):
+    def parse_package_file(self, package_mets: METS) -> premis.Premis:
         """
         Parse the package PREMIS file.
         """
@@ -130,7 +130,7 @@ class PremisFiles:
         package_premis = premis.Premis.from_xml_tree(premis_xml)
         return package_premis
 
-    def parse_representation_files(self, package_mets: METS):
+    def parse_representation_files(self, package_mets: METS) -> list[premis.Premis]:
         """
         Parse the representation PREMIS files.
         """
@@ -246,27 +246,24 @@ class PremisFiles:
         # Films have a carrier representation in the package PREMIS
         carrier = self.get_carrier_representation()
 
-        digital_relationships = [
-            rel
-            for rel in entity.relationships
-            if rel.sub_type.innerText in RepresentsDigital
-        ]
-
-        has_x_copy: Callable[[str], list[Reference]] = lambda x: [
-            Reference(id=rel.related_object_uuid)
-            for rel in digital_relationships
-            if rel.sub_type.innerText == x
-        ]
-
         return {
+            "id": entity.uuid.value,
             "identifier": entity_id,
             "primary_identifier": primary_identifiers,
             "local_identifier": local_identifiers,
             "has_carrier_copy": Reference(id=carrier.id) if carrier else None,
-            "has_master_copy": has_x_copy("has master copy"),
-            "has_mezzanine_copy": has_x_copy("has mezzanine copy"),
-            "has_access_copy": has_x_copy("has access copy"),
-            "has_transcription_copy": has_x_copy("has transcription copy"),
+            "has_master_copy": filter_digital_relationships_by_name(
+                entity.relationships, "has master copy"
+            ),
+            "has_mezzanine_copy": filter_digital_relationships_by_name(
+                entity.relationships, "has mezzanine copy"
+            ),
+            "has_access_copy": filter_digital_relationships_by_name(
+                entity.relationships, "has access copy"
+            ),
+            "has_transcription_copy": filter_digital_relationships_by_name(
+                entity.relationships, "has transcription copy"
+            ),
         }
 
     def get_carrier_representation(self) -> CarrierRepresentation | None:
@@ -364,7 +361,6 @@ class PremisFiles:
         ]
 
         # TODO: could also be an organization
-        # TODO: where to put agent type?
         was_associated_with: list[Agent] = [
             Person(
                 id=agent.uuid.value,
@@ -465,6 +461,8 @@ def parse_file(file: premis.File, repr_id: str) -> File:
         name=LangStr(nl="File"),
         original_name=(file.original_name.value if file.original_name else None),
         fixity=Fixity(
+            # TODO: creator
+            id=uuid4(),
             type=map_fixity_digest_algorithm_to_uri(
                 fixity.message_digest_algorithm.innerText
             ),
@@ -507,3 +505,20 @@ def map_file_format_to_uri(format: premis.Format) -> str:
 
     format_key = format.registry.key.innerText
     return "https://www.nationalarchives.gov.uk/pronom/" + format_key
+
+
+def is_digital_relationship(rel: premis.Relationship) -> bool:
+    return (
+        rel.sub_type.innerText in IsRepresentedBy
+        and rel.sub_type.innerText != IsRepresentedBy.has_carrier_copy
+    )
+
+
+def filter_digital_relationships_by_name(
+    relationships: list[premis.Relationship], name: str
+) -> list[Reference]:
+    return [
+        Reference(id=rel.related_object_uuid)
+        for rel in relationships
+        if is_digital_relationship(rel) and rel.sub_type.innerText == name
+    ]

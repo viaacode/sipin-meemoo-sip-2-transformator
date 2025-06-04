@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from sippy.sip import SIP, IntellectualEntity
-from sippy.utils import Config, String
+from sippy.utils import Config
 from app.descriptive import parse_descriptive
 from app.mets import parse_mets
 from app.preservation import PremisFiles

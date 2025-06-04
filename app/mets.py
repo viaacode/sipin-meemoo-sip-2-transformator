@@ -1,6 +1,6 @@
 from pathlib import Path
 import typing
-from typing import cast
+from typing import cast, Literal
 
 from lxml import etree
 from lxml.etree import _Element
@@ -16,9 +16,17 @@ from app.utils import (
     xpath_text,
 )
 
+# TODO: don't use the version of the SIP
+OtherContentInformationType = Literal[
+    "https://data.hetarchief.be/id/sip/2.1/basic",
+    "https://data.hetarchief.be/id/sip/2.1/bibliographic",
+    "https://data.hetarchief.be/id/sip/2.1/material-artwork",
+    "https://data.hetarchief.be/id/sip/2.1/film",
+]
+
 
 class METS(BaseModel):
-    other_content_information_type: str
+    other_content_information_type: OtherContentInformationType
     metsHdr: sippy.METSHdr
     descriptive_metadata: Path | None
     administrative_metadata: Path | None
@@ -46,14 +54,8 @@ class METS(BaseModel):
 
     @property
     def entity_type(self) -> sippy.EntityClass:
-        match self.other_content_information_type:
-            case "https://data.hetarchief.be/id/sip/2.1/film":
-                return sippy.EntityClass.film
-            # TODO: other cases, what should the mapping be?
-            case _:
-                raise ParseException(
-                    f"Unknown OTHERCONTENTINFORMATIONTYPE {self.other_content_information_type}."
-                )
+        # TODO: this should come from the descriptive metdata
+        return sippy.EntityClass.entity
 
 
 def parse_mets(mets_path: Path) -> METS:
@@ -69,6 +71,7 @@ def parse_mets(mets_path: Path) -> METS:
     )
     struct_map_reprs = [root.joinpath(r) for r in struct_map_reprs]
 
+    # TODO: perhaps the structmap should be used to get the ID of the dmdSec to read
     dmd_href = xpath_optional_text(
         mets_xml,
         "mets:dmdSec/mets:mdRef[@LOCTYPE='URL' and @xlink:type='simple']/@xlink:href",
@@ -81,6 +84,16 @@ def parse_mets(mets_path: Path) -> METS:
     other_content_information_type = xpath_text(
         mets_xml, "@csip:OTHERCONTENTINFORMATIONTYPE"
     )
+
+    if other_content_information_type not in (
+        "https://data.hetarchief.be/id/sip/2.1/basic",
+        "https://data.hetarchief.be/id/sip/2.1/bibliographic",
+        "https://data.hetarchief.be/id/sip/2.1/material-artwork",
+        "https://data.hetarchief.be/id/sip/2.1/film",
+    ):
+        raise ValueError(
+            f"OTHERCONTENTINFORMATIONTYPE must be one of {typing.get_args(OtherContentInformationType)}"
+        )
 
     return METS(
         other_content_information_type=other_content_information_type,

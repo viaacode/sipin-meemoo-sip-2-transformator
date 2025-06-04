@@ -450,7 +450,7 @@ class PremisFiles:
 
 
 def parse_file(file: premis.File, repr_id: str) -> File:
-    size = next((c.size for c in file.characteristics if c.size))
+    size = next((c.size for c in file.characteristics if c.size is not None))
     fixity = next(iter(next((c.fixity for c in file.characteristics))))
     format = next(iter(next(c.format for c in file.characteristics)))
 

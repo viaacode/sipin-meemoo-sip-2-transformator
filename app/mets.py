@@ -6,16 +6,7 @@ from lxml import etree
 from lxml.etree import _Element
 from pydantic import BaseModel
 
-from sippy.descriptive import ContentPartner
-from sippy.sip import (
-    EARKNote,
-    METSAgent,
-    METSAgentType,
-    METSHdr,
-    METSRole,
-)
-from sippy.utils import LangStr
-from sippy.vocabulary import EntityClass
+import sippy
 
 from app.utils import (
     ParseException,
@@ -28,13 +19,13 @@ from app.utils import (
 
 class METS(BaseModel):
     other_content_information_type: str
-    metsHdr: METSHdr
+    metsHdr: sippy.METSHdr
     descriptive_metadata: Path | None
     administrative_metadata: Path | None
     representations: list[Path]
 
     @property
-    def content_partner(self) -> ContentPartner:
+    def content_partner(self) -> sippy.ContentPartner:
         """
         Gets the CP from the METS agents.
         """
@@ -46,18 +37,18 @@ class METS(BaseModel):
         if len(archivist) != 1:
             raise ParseException("No archivist agent found in METS")
         note = archivist[0].note
-        if not isinstance(note, EARKNote):
+        if not isinstance(note, sippy.EARKNote):
             raise ParseException("Archivist note must be an e-ark note")
-        return ContentPartner(
+        return sippy.ContentPartner(
             identifier=note.value,
-            pref_label=LangStr.codes(nl=archivist[0].name),
+            pref_label=sippy.LangStr.codes(nl=archivist[0].name),
         )
 
     @property
-    def entity_type(self) -> EntityClass:
+    def entity_type(self) -> sippy.EntityClass:
         match self.other_content_information_type:
             case "https://data.hetarchief.be/id/sip/2.1/film":
-                return EntityClass.film
+                return sippy.EntityClass.film
             # TODO: other cases, what should the mapping be?
             case _:
                 raise ParseException(
@@ -93,7 +84,7 @@ def parse_mets(mets_path: Path) -> METS:
 
     return METS(
         other_content_information_type=other_content_information_type,
-        metsHdr=METSHdr(agents=agents),
+        metsHdr=sippy.METSHdr(agents=agents),
         descriptive_metadata=(
             root.joinpath(dmd_href) if dmd_href is not None else dmd_href
         ),
@@ -104,23 +95,25 @@ def parse_mets(mets_path: Path) -> METS:
     )
 
 
-def parse_mets_agent(agent: _Element) -> METSAgent:
+def parse_mets_agent(agent: _Element) -> sippy.METSAgent:
     role = xpath_text(agent, "@ROLE")
     type = xpath_optional_text(agent, "@TYPE")
-    if role not in typing.get_args(METSRole):
-        raise ParseException(f"@ROLE must be one of {typing.get_args(METSRole)}")
-    if type not in typing.get_args(METSAgentType):
-        raise ParseException(f"@TYPE must be one of {typing.get_args(METSAgentType)}")
+    if role not in typing.get_args(sippy.METSRole):
+        raise ParseException(f"@ROLE must be one of {typing.get_args(sippy.METSRole)}")
+    if type not in typing.get_args(sippy.METSAgentType):
+        raise ParseException(
+            f"@TYPE must be one of {typing.get_args(sippy.METSAgentType)}"
+        )
 
-    return METSAgent(
+    return sippy.METSAgent(
         id=xpath_optional_text(agent, "@ID"),
         name=xpath_text(agent, "mets:name/text()"),
-        note=EARKNote(
+        note=sippy.EARKNote(
             note_type=xpath_text(agent, "mets:note/@csip:NOTETYPE"),
             value=xpath_text(agent, "mets:note/text()"),
         ),
-        role=cast(METSRole, role),
+        role=cast(sippy.METSRole, role),
         other_role=xpath_optional_text(agent, "@OTHERROLE"),
-        type=cast(METSAgentType, type),
+        type=cast(sippy.METSAgentType, type),
         other_type=xpath_optional_text(agent, "@OTHERTYPE"),
     )

@@ -1,0 +1,3 @@
+[submodule "tests/sip-examples"]
+	path = tests/sip-examples
+	url = git@github.com:viaacode/sip-examples.git

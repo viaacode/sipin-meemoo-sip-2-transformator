@@ -270,26 +270,26 @@ class PremisFiles:
         """
         Extract the carrier representation from the package PREMIS if present.
         """
-        rels = self.package.representation.relationships
-        entity_rel = next(
-            rel for rel in rels if rel.sub_type.innerText == "is carrier copy of"
-        )
-        entity_id = entity_rel.related_object_uuid
 
         try:
             carrier = self.package.representation
         except StopIteration:
-            carrier = None
+            # No carrier was found
+            return None
 
-        if carrier is not None:
-            carrier = CarrierRepresentation(
-                id=carrier.uuid.value,
-                represents=Reference(id=entity_id),
-                is_carrier_copy_of=Reference(id=entity_id),
-                stored_at=[],  # TODO: the SIP spec must be finalized before this part can be parsed
-            )
+        entity_rel = next(
+            rel
+            for rel in carrier.relationships
+            if rel.sub_type.innerText == "is carrier copy of"
+        )
+        entity_id = entity_rel.related_object_uuid
 
-        return carrier
+        return CarrierRepresentation(
+            id=carrier.uuid.value,
+            represents=Reference(id=entity_id),
+            is_carrier_copy_of=Reference(id=entity_id),
+            stored_at=[],  # TODO: the SIP spec must be finalized before this part can be parsed
+        )
 
     def get_digital_representations(self) -> list[AnyRepresentation]:
         """

@@ -2,8 +2,8 @@ from typing import Literal
 
 import sippy
 
-from app.descriptive.xml_lang import LangStr as XMLLangStr
-import app.descriptive.schema as schema
+from . import schema
+from .xml_lang import LangStr as XMLLangStr
 
 
 class Sippify:

@@ -7,9 +7,10 @@ from pydantic import BaseModel
 
 import sippy
 
-import app.descriptive.schema as schema
-from app.descriptive.xml_lang import LangStr
-from app.descriptive.sippify import Sippify
+from . import schema
+from .xml_lang import LangStr
+from .sippify import Sippify
+
 from app.parse import Parser
 from app.mets import METS
 from app.utils import ParseException

@@ -1,8 +1,8 @@
 from typing import Any
 
 from app.mets import METS
-from app.descriptive.mods import parse_mods
-from app.descriptive.dc_schema import parse_dc_schema
+from .mods import parse_mods
+from .dc_schema import parse_dc_schema
 
 
 # TODO: make this generic so that id does not use the version of the SIP

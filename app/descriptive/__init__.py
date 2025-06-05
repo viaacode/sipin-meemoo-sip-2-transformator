@@ -1,1 +1,1 @@
-from app.descriptive.descriptive import parse_descriptive
+from .descriptive import parse_descriptive

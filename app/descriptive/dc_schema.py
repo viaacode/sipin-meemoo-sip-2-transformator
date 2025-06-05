@@ -2,6 +2,7 @@ from datetime import datetime
 from typing import Self, Any
 from xml.etree import ElementTree
 from xml.etree.ElementTree import Element
+from pathlib import Path
 
 from pydantic import BaseModel
 
@@ -12,8 +13,6 @@ from .xml_lang import LangStr
 from .sippify import Sippify
 
 from app.parse import Parser
-from app.mets import METS
-from app.utils import ParseException
 
 EDTF = str
 
@@ -53,7 +52,7 @@ class DCPlusSchema(BaseModel):
     genre: str | None
 
     @classmethod
-    def from_xml(cls, path: str) -> Self:
+    def from_xml(cls, path: str | Path) -> Self:
         root = ElementTree.parse(path).getroot()
         return cls.from_xml_tree(root)
 
@@ -103,12 +102,8 @@ class DCPlusSchema(BaseModel):
         )
 
 
-def parse_dc_schema(mets: METS) -> dict[str, Any]:
-
-    if mets.descriptive_metadata is None:
-        raise ParseException("Package must have descriptive metdata")
-
-    desc = DCPlusSchema.from_xml(str(mets.descriptive_metadata))
+def parse_dc_schema(path: Path) -> dict[str, Any]:
+    desc = DCPlusSchema.from_xml(path)
 
     return {
         "name": Sippify.lang_str(desc.title),

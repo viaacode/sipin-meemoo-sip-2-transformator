@@ -1,18 +1,15 @@
 from typing import Any
 from itertools import chain
+from pathlib import Path
 
 from eark_models import mods
 import sippy
 
 from app.utils import ParseException
-from app.mets import METS
 
 
-def parse_mods(mets: METS) -> dict[str, Any]:
-    if mets.descriptive_metadata is None:
-        raise ParseException("Package must have descriptive metdata")
-
-    desc = mods.MODS.from_xml(str(mets.descriptive_metadata))
+def parse_mods(path: Path) -> dict[str, Any]:
+    desc = mods.MODS.from_xml(path)
 
     main_title_info = next(info for info in desc.titleInfos if info.type is None)
     main_title = next(iter(main_title_info.titles))

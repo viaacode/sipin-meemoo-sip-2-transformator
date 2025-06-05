@@ -1,7 +1,7 @@
 from typing import Any
 
-from app.mets import METS
-from app.utils import ParseException
+from ..mets import METS
+from ..utils import ParseException
 
 from .mods import parse_mods
 from .dc_schema import parse_dc_schema

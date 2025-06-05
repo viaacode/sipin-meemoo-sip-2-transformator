@@ -28,8 +28,8 @@ from sippy.utils import DateTime, LangStr, NonNegativeInt, URIRef, uuid4
 from sippy.vocabulary import IsRepresentedBy, Represents
 from sippy.sip import PremisAgent
 
-from app.mets import METS, parse_mets
-from app.utils import ParseException
+from .mets import METS, parse_mets
+from .utils import ParseException
 
 from eark_models import premis
 

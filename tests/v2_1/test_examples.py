@@ -1,4 +1,4 @@
-from app.app import parse_sip
+from app.v2_1 import parse_sip
 
 
 def test_film():

@@ -4,8 +4,8 @@ from xml.etree.ElementTree import Element
 
 from pydantic import BaseModel
 
-from app.parse import Parser
-from app.utils import ParseException
+from ..parse import Parser
+from ..utils import ParseException
 
 
 class _Role(BaseModel):

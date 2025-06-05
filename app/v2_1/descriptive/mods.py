@@ -5,7 +5,7 @@ from pathlib import Path
 from eark_models import mods
 import sippy
 
-from app.utils import ParseException
+from ..utils import ParseException
 
 
 def parse_mods(path: Path) -> dict[str, Any]:

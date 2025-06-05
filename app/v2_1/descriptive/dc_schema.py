@@ -12,7 +12,7 @@ from . import schema
 from .xml_lang import LangStr
 from .sippify import Sippify
 
-from app.parse import Parser
+from ..parse import Parser
 
 EDTF = str
 

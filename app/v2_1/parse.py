@@ -3,7 +3,7 @@ from datetime import datetime
 
 import dateutil.parser
 
-from app.utils import ParseException, ns
+from .utils import ParseException, ns
 
 
 class Parser:

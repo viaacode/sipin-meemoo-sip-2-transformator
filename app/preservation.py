@@ -394,12 +394,13 @@ class PremisFiles:
                 for info in event.outcome_information
             ]
         )
-        outcome = [
+        outcomes = [
             info.outcome.innerText for info in event.outcome_information if info.outcome
         ]
-        if len(outcome) > 1:
+        if len(outcomes) > 1:
             raise ParseException("Only one outcome per event is supported.")
-        outcome = outcome[0]
+
+        outcome = next(iter(outcomes), None)
         outcome = map_outcome_to_uri(outcome)
 
         object_links = self.object_map.from_ids(event.linking_object_identifiers)
@@ -429,7 +430,7 @@ class PremisFiles:
                 pref_label=LangStr(nl=impelementer_agent.name.innerText),
             ),
             note=note if note else None,
-            outcome=URIRef(id=cast(EventOutcome, outcome)),
+            outcome=URIRef[EventOutcome](id=outcome) if outcome else None,
             outcome_note=outcome_note if outcome_note else None,
             executed_by=executed_by,
             source=source,
@@ -472,8 +473,10 @@ def parse_file(file: premis.File, repr_id: str) -> File:
     )
 
 
-def map_outcome_to_uri(outcome: str) -> str:
+def map_outcome_to_uri(outcome: str | None) -> EventOutcome | None:
     match outcome:
+        case None:
+            return None
         case "success":
             return "http://id.loc.gov/vocabulary/preservation/eventOutcome/suc"
         case "fail":

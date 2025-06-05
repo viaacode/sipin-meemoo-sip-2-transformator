@@ -20,6 +20,7 @@ ns = {
     "xs": "http://www.w3.org/2001/XMLSchema/",
     "edtf": "http://id.loc.gov/datatypes/edtf/",
     "schema": "https://schema.org/",
+    "mods": "http://www.loc.gov/mods/v3",
     # premis
     "premis": "http://www.loc.gov/premis/v3",
     "haObj": "https://data.hetarchief.be/ns/object/",

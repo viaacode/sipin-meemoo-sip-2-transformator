@@ -1,2 +1,4 @@
+from app.app import EventListener
+
 if __name__ == "__main__":
-    raise NotImplementedError()
+    EventListener().start_listening()

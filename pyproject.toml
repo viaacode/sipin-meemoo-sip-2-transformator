@@ -10,7 +10,8 @@ dependencies = [
     "meemoo-cloudevents",
     "lxml==5.4.0",
     "python-dateutil==2.9.0.post0",
-    "sipin-eark-models",
+    "sipin-eark-models==0.0.1",
+    "SIP.py==0.0.1",
 ]
 classifiers = [
   "Development Status :: 3 - Alpha",
@@ -20,6 +21,9 @@ classifiers = [
 [project.optional-dependencies]
 dev = [
     "types-lxml==2025.3.30",
+    "pytest==8.4.0",
+    "pytest-cov==6.1.1",
+    "testcontainers==4.10.0",
 ]
 
 [tool.pytest.ini_options]

@@ -107,7 +107,9 @@ def parse_dc_schema(path: Path) -> dict[str, Any]:
 
     return {
         "name": Sippify.lang_str(desc.title),
-        "alternative_name": [Sippify.lang_str(desc.alternative)],
+        "alternative_name": (
+            [Sippify.lang_str(desc.alternative)] if desc.alternative else []
+        ),
         # # TODO: dcterms:extend
         "available": (sippy.DateTime(value=desc.available) if desc.available else None),
         "description": Sippify.lang_str(desc.description),

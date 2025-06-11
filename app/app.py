@@ -31,7 +31,9 @@ class EventListener:
         Args:
             event (Event): The incoming event to process.
         """
-        if not event.has_successful_outcome():
+        is_event_success = event.has_successful_outcome()
+        is_validation_success = event.get_data()["outcome"] != "success"
+        if not is_event_success or not is_validation_success:
             self.log.info(f"Dropping non successful event: {event.get_data()}")
             return
 

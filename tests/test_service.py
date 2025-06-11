@@ -30,11 +30,15 @@ def setup(request: pytest.FixtureRequest):
 
     sleep(3)
     namespace = pulsar_config.consumer_topic.rsplit("/", maxsplit=1)[0]
-    code, _ = pulsar_container.exec(f"pulsar-admin namespaces create {namespace}")
+    if namespace.startswith("persistent://"):
+        namespace = namespace[13:]
+    code, result = pulsar_container.exec(f"pulsar-admin namespaces create {namespace}")
+    print(result)
     assert code == 0
-    code, _ = pulsar_container.exec(
+    code, result = pulsar_container.exec(
         f"pulsar-admin topics create {pulsar_config.consumer_topic}"
     )
+    print(result)
     assert code == 0
 
 

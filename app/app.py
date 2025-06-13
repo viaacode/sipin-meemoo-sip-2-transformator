@@ -47,8 +47,8 @@ class EventListener:
                 datacontenttype="application/cloudevents+json; charset=utf-8",
             ),
             data={
-                "metdata_format": "jsonld",
-                "medata": jsonld,
+                "metadata_format": "jsonld",
+                "metadata": jsonld,
             },
         )
 

@@ -64,7 +64,7 @@ class EventListener:
         while self.running:
             try:
                 msg = self.pulsar_client.receive()
-            except _pulsar.Timeout as e:
+            except _pulsar.Timeout:
                 continue
 
             try:

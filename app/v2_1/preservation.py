@@ -1,4 +1,5 @@
-from typing import Any, cast
+from typing import cast
+from functools import partial
 
 from lxml import etree
 import dateutil.parser
@@ -23,6 +24,7 @@ from sippy.objects import (
     LocalIdentifier,
     Object,
     Reference,
+    IntellectualEntity,
 )
 from sippy.utils import DateTime, LangStr, NonNegativeInt, URIRef, uuid4
 from sippy.vocabulary import IsRepresentedBy, Represents
@@ -211,7 +213,7 @@ class PremisFiles:
                     roles=linking_object_id.roles,
                 )
 
-    def get_structural_info(self) -> dict[str, Any]:
+    def get_structural_info(self) -> partial[IntellectualEntity]:
         """
         Extract the structural info from the package and representation PREMIS files.
         """
@@ -222,10 +224,9 @@ class PremisFiles:
         if carrier := self.get_carrier_representation():
             is_represented_by += [carrier]
 
-        structural |= {"is_represented_by": is_represented_by}
-        return structural
+        return partial(structural, is_represented_by=is_represented_by)
 
-    def get_package_structural_info(self) -> dict[str, Any]:
+    def get_package_structural_info(self) -> partial[IntellectualEntity]:
         """
         Extract the structural info available in the package PREMIS.
         """
@@ -246,25 +247,26 @@ class PremisFiles:
         # Films have a carrier representation in the package PREMIS
         carrier = self.get_carrier_representation()
 
-        return {
-            "id": entity.uuid.value,
-            "identifier": entity_id,
-            "primary_identifier": primary_identifiers,
-            "local_identifier": local_identifiers,
-            "has_carrier_copy": Reference(id=carrier.id) if carrier else None,
-            "has_master_copy": filter_digital_relationships_by_name(
+        return partial(
+            IntellectualEntity,
+            id=entity.uuid.value,
+            identifier=entity_id,
+            primary_identifier=primary_identifiers,
+            local_identifier=local_identifiers,
+            has_carrier_copy=Reference(id=carrier.id) if carrier else None,
+            has_master_copy=filter_digital_relationships_by_name(
                 entity.relationships, "has master copy"
             ),
-            "has_mezzanine_copy": filter_digital_relationships_by_name(
+            has_mezzanine_copy=filter_digital_relationships_by_name(
                 entity.relationships, "has mezzanine copy"
             ),
-            "has_access_copy": filter_digital_relationships_by_name(
+            has_access_copy=filter_digital_relationships_by_name(
                 entity.relationships, "has access copy"
             ),
-            "has_transcription_copy": filter_digital_relationships_by_name(
+            has_transcription_copy=filter_digital_relationships_by_name(
                 entity.relationships, "has transcription copy"
             ),
-        }
+        )
 
     def get_carrier_representation(self) -> CarrierRepresentation | None:
         """

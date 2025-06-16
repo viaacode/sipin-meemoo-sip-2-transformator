@@ -19,14 +19,14 @@ def parse_sip(path: str | Path) -> SIP:
     mets_path = Path(path).joinpath("METS.xml")
     package_mets = parse_mets(mets_path)
     premis_files = PremisFiles(package_mets)
-    structural = premis_files.get_structural_info()
-    descriptive = parse_descriptive(package_mets)
+    ie_structural = premis_files.get_structural_info()
+    ie_descriptive = parse_descriptive(package_mets)
 
     ie = IntellectualEntity(
         type=package_mets.entity_type,
         maintainer=package_mets.content_partner,
-        **structural,
-        **descriptive,
+        **ie_structural.keywords,
+        **ie_descriptive.keywords,
     )
 
     return SIP(

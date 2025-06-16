@@ -1,4 +1,6 @@
-from typing import Any
+from functools import partial
+
+import sippy
 
 from ..mets import METS
 from ..utils import ParseException
@@ -8,7 +10,7 @@ from .dc_schema import parse_dc_schema
 
 
 # TODO: make this generic so that id does not use the version of the SIP
-def parse_descriptive(mets: METS) -> dict[str, Any]:
+def parse_descriptive(mets: METS) -> partial[sippy.IntellectualEntity]:
 
     if mets.descriptive_metadata is None:
         raise ParseException(

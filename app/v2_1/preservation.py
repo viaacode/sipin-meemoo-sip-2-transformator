@@ -33,7 +33,7 @@ from sippy.sip import PremisAgent
 from .mets import METS, parse_mets
 from .utils import ParseException
 
-from eark_models import premis
+import eark_models.premis.v3_0 as premis
 
 
 class TemporaryObject(BaseModel):

@@ -1,150 +1,274 @@
-from datetime import datetime
-from typing import Self
-from xml.etree import ElementTree
-from xml.etree.ElementTree import Element
 from pathlib import Path
 from functools import partial
 
-from pydantic import BaseModel
-
 import sippy
 
-from . import schema
-from .xml_lang import LangStr
-from .sippify import Sippify
-
-from ..parse import Parser
-
-EDTF = str
-
-
-class DCPlusSchema(BaseModel):
-    # basic profile
-    title: LangStr
-    alternative: LangStr | None
-    # TODO: extend
-    available: datetime | None
-    description: LangStr
-    abstract: LangStr | None
-    created: EDTF
-    issued: EDTF | None
-    publisher: list[schema.Publisher]
-    creator: list[schema.Creator]
-    contributor: list[schema.Contributor]
-    spatial: list[str]
-    temporal: list[str]
-    subject: LangStr | None
-    language: list[str]
-    license: list[str]
-    rights_holder: str | None
-    rights: LangStr | None
-    format: str
-    height: schema.Height | None
-    width: schema.Width | None
-    depth: schema.Depth | None
-    weight: schema.Weight | None
-    art_medium: LangStr | None
-    artform: LangStr | None
-    is_part_of: list[schema.AnyCreativeWork | schema.BroadcastEvent]
-
-    # film profile
-    country_of_origin: str | None
-    credit_text: list[str]
-    genre: str | None
-
-    @classmethod
-    def from_xml(cls, path: str | Path) -> Self:
-        root = ElementTree.parse(path).getroot()
-        return cls.from_xml_tree(root)
-
-    @classmethod
-    def from_xml_tree(cls, root: Element) -> Self:
-        creators = Parser.element_list(root, "schema:creator")
-        creators += Parser.element_list(root, "dcterms:creator")
-        publishers = Parser.element_list(root, "schema:publisher")
-        publishers += Parser.element_list(root, "dcterms:publisher")
-        contributors = Parser.element_list(root, "schema:contributor")
-        contributors += Parser.element_list(root, "dcterms:contributor")
-
-        is_part_of = [
-            schema.parse_is_part_of(el)
-            for el in Parser.element_list(root, "schema:isPartOf")
-        ]
-
-        return cls(
-            title=LangStr.new(root, "dcterms:title"),
-            alternative=LangStr.optional(root, "dcterms:alternative"),
-            available=Parser.optional_datetime(root, "dcterms:available"),
-            description=LangStr.new(root, "dcterms:description"),
-            abstract=LangStr.optional(root, "dcterms:abstract"),
-            created=Parser.text(root, "dcterms:created"),
-            issued=Parser.optional_text(root, "dcterms:issued"),
-            spatial=Parser.text_list(root, "dcterms:spatial"),
-            temporal=Parser.text_list(root, "dcterms:temporal"),
-            subject=LangStr.optional(root, "dcterms:subject"),
-            language=Parser.text_list(root, "dcterms:language"),
-            license=Parser.text_list(root, "dcterms:license"),
-            rights_holder=Parser.optional_text(root, "dcterms:rightsHolder"),
-            rights=LangStr.optional(root, "dcterms:rights"),
-            format=Parser.text(root, "dcterms:format"),
-            creator=[schema.Creator.from_xml_tree(el) for el in creators],
-            publisher=[schema.Publisher.from_xml_tree(el) for el in publishers],
-            contributor=[schema.Contributor.from_xml_tree(el) for el in contributors],
-            height=schema.Height.from_xml_tree(root, "schema:height"),
-            width=schema.Width.from_xml_tree(root, "schema:width"),
-            depth=schema.Depth.from_xml_tree(root, "schema:depth"),
-            weight=schema.Weight.from_xml_tree(root, "schema:weight"),
-            art_medium=LangStr.optional(root, "dcterms:artMedium"),
-            artform=LangStr.optional(root, "dcterms:artform"),
-            is_part_of=is_part_of,
-            country_of_origin=Parser.optional_text(root, "schema:countryOfOrigin"),
-            credit_text=Parser.text_list(root, "schema:creditText"),
-            genre=Parser.optional_text(root, "schema:genre"),
-        )
+from .models import dc_schema as dcs
+from .models.xml_lang import XMLLang
 
 
 def parse_dc_schema(path: Path) -> partial[sippy.IntellectualEntity]:
-    desc = DCPlusSchema.from_xml(path)
+    dc_plus_schema = dcs.DCPlusSchema.from_xml(path)
+    sippify = DC2Sippy(dc_plus_schema)
 
     return partial(
         sippy.IntellectualEntity,
-        name=Sippify.lang_str(desc.title),
-        alternative_name=(
-            [Sippify.lang_str(desc.alternative)] if desc.alternative else []
-        ),
-        # # TODO: dcterms:extend
-        available=(sippy.DateTime(value=desc.available) if desc.available else None),
-        description=Sippify.lang_str(desc.description),
-        abstract=Sippify.lang_str(desc.abstract),
-        date_created=sippy.EDTF_level1(value=desc.created),
-        date_published=(sippy.EDTF_level1(value=desc.issued) if desc.issued else None),
-        publisher=[Sippify.publisher(publisher) for publisher in desc.publisher],
-        creator=[Sippify.creator(creator) for creator in desc.creator],
-        contributor=[
-            Sippify.contributor(contributor) for contributor in desc.contributor
-        ],
-        spatial=[sippy.Place(name=sippy.LangStr(nl=s)) for s in desc.spatial],
-        temporal=[sippy.LangStr(nl=t) for t in desc.temporal],
-        keywords=[Sippify.lang_str(desc.subject)] if desc.subject else [],
-        in_language=desc.language,
-        # # TODO: is this simple mapping for licenses ok?
-        license=[
-            sippy.Concept(id="https://data.hetarchief.be/id/license/" + l)
-            for l in desc.license
-        ],
-        copyright_holder=(
-            [sippy.Thing(name=sippy.LangStr(nl=desc.rights_holder))]
-            if desc.rights_holder
-            else []
-        ),
-        rights=([Sippify.lang_str(desc.rights)] if desc.rights else []),
-        format=sippy.String(value=desc.format),
-        height=Sippify.quantitive_value(desc.height),
-        width=Sippify.quantitive_value(desc.width),
-        depth=Sippify.quantitive_value(desc.depth),
-        weight=Sippify.quantitive_value(desc.weight),
-        art_medium=([Sippify.lang_str(desc.art_medium)] if desc.art_medium else []),
-        artform=[Sippify.lang_str(desc.artform)] if desc.artform else [],
-        schema_is_part_of=[Sippify.creative_work(cw) for cw in desc.is_part_of],
-        credit_text=[sippy.LangStr(nl=s) for s in desc.credit_text],
+        name=sippify.title,
+        alternative_name=sippify.alternative,
+        # TODO: dcterms:extend
+        available=sippify.available,
+        description=sippify.description,
+        abstract=sippify.abstract,
+        date_created=sippify.created,
+        date_published=sippify.issued,
+        publisher=sippify.publisher,
+        creator=sippify.creator,
+        contributor=sippify.contributor,
+        spatial=sippify.spatial,
+        temporal=sippify.temporal,
+        keywords=sippify.subject,
+        in_language=sippify.in_language,
+        license=sippify.license,
+        copyright_holder=sippify.copyright_holder,
+        rights=sippify.rights,
+        format=sippify.format,
+        height=sippify.height,
+        width=sippify.width,
+        depth=sippify.depth,
+        weight=sippify.weight,
+        art_medium=sippify.art_medium,
+        artform=sippify.artform,
+        schema_is_part_of=sippify.schema_is_part_of,
+        credit_text=sippify.credit_text,
     )
+
+
+class DC2Sippy:
+
+    def __init__(self, dc_plus_schema: dcs.DCPlusSchema) -> None:
+        self.dc_plus_schema = dc_plus_schema
+
+    @property
+    def title(self) -> sippy.LangStr:
+        return DC2Sippy.lang_str(self.dc_plus_schema.title)
+
+    @property
+    def alternative(self) -> list[sippy.LangStr]:
+        if self.dc_plus_schema.alternative is None:
+            return []
+        return [DC2Sippy.lang_str(self.dc_plus_schema.alternative)]
+
+    @property
+    def available(self) -> sippy.DateTime | None:
+        if self.dc_plus_schema.available is None:
+            return None
+        return sippy.DateTime(value=self.dc_plus_schema.available)
+
+    @property
+    def description(self) -> sippy.LangStr | None:
+        return DC2Sippy.lang_str(self.dc_plus_schema.description)
+
+    @property
+    def abstract(self) -> sippy.LangStr | None:
+        return DC2Sippy.optional_lang_str(self.dc_plus_schema.abstract)
+
+    @property
+    def created(self) -> sippy.EDTF:
+        return sippy.EDTF_level1(value=self.dc_plus_schema.created)
+
+    @property
+    def issued(self) -> sippy.EDTF | None:
+        if self.dc_plus_schema.issued is None:
+            return None
+        return sippy.EDTF_level1(value=self.dc_plus_schema.issued)
+
+    @property
+    def publisher(self) -> list[sippy.Role]:
+        return [DC2Sippy.role(role) for role in self.dc_plus_schema.publisher]
+
+    @property
+    def creator(self) -> list[sippy.Role]:
+        return [DC2Sippy.role(role) for role in self.dc_plus_schema.creator]
+
+    @property
+    def contributor(self) -> list[sippy.Role]:
+        return [DC2Sippy.role(role) for role in self.dc_plus_schema.contributor]
+
+    @property
+    def spatial(self) -> list[sippy.Place]:
+        return [
+            sippy.Place(name=sippy.LangStr(nl=s)) for s in self.dc_plus_schema.spatial
+        ]
+
+    @property
+    def temporal(self) -> list[sippy.LangStr]:
+        return [sippy.LangStr(nl=t) for t in self.dc_plus_schema.temporal]
+
+    @property
+    def subject(self) -> list[sippy.LangStr]:
+        if self.dc_plus_schema.subject is None:
+            return []
+        return [DC2Sippy.lang_str(self.dc_plus_schema.subject)]
+
+    @property
+    def in_language(self) -> list[str]:
+        return self.dc_plus_schema.language
+
+    @property
+    def license(self) -> list[sippy.Concept]:
+        return [
+            sippy.Concept(id="https://data.hetarchief.be/id/license/" + l)
+            for l in self.dc_plus_schema.license
+        ]
+
+    @property
+    def copyright_holder(self) -> list[sippy.Thing]:
+        if self.dc_plus_schema.rights_holder is None:
+            return []
+        return [sippy.Thing(name=sippy.LangStr(nl=self.dc_plus_schema.rights_holder))]
+
+    @property
+    def rights(self) -> list[sippy.LangStr]:
+        if self.dc_plus_schema.rights is None:
+            return []
+        return [DC2Sippy.lang_str(self.dc_plus_schema.rights)]
+
+    @property
+    def format(self) -> sippy.String:
+        return sippy.String(value=self.dc_plus_schema.format)
+
+    @property
+    def height(self) -> sippy.QuantitativeValue | None:
+        return DC2Sippy.quantitive_value(self.dc_plus_schema.height)
+
+    @property
+    def width(self):
+        return DC2Sippy.quantitive_value(self.dc_plus_schema.width)
+
+    @property
+    def depth(self):
+        return DC2Sippy.quantitive_value(self.dc_plus_schema.depth)
+
+    @property
+    def weight(self):
+        return DC2Sippy.quantitive_value(self.dc_plus_schema.weight)
+
+    @property
+    def art_medium(self) -> list[sippy.LangStr]:
+        if self.dc_plus_schema.art_medium is None:
+            return []
+        return [DC2Sippy.lang_str(self.dc_plus_schema.art_medium)]
+
+    @property
+    def artform(self) -> list[sippy.LangStr]:
+        if self.dc_plus_schema.artform is None:
+            return []
+        return [DC2Sippy.lang_str(self.dc_plus_schema.artform)]
+
+    @property
+    def schema_is_part_of(self) -> list[sippy.AnyCreativeWork | sippy.BroadcastEvent]:
+        return [DC2Sippy.creative_work(cw) for cw in self.dc_plus_schema.is_part_of]
+
+    @property
+    def credit_text(self) -> list[sippy.LangStr]:
+        return [sippy.LangStr(nl=s) for s in self.dc_plus_schema.credit_text]
+
+    @staticmethod
+    def optional_lang_str(str: XMLLang | None) -> sippy.LangStr | None:
+        if str is None:
+            return None
+        return sippy.LangStr.codes(**str.content)
+
+    @staticmethod
+    def lang_str(str: XMLLang) -> sippy.LangStr:
+        return sippy.LangStr.codes(**str.content)
+
+    @staticmethod
+    def role(role: dcs.Creator | dcs.Publisher | dcs.Contributor) -> sippy.Role:
+        is_person = role.birth_date or role.death_date
+        if is_person:
+            member = sippy.Person(
+                name=sippy.LangStr(nl=role.name),
+                birth_date=(
+                    sippy.EDTF_level1(value=role.birth_date)
+                    if role.birth_date
+                    else None
+                ),
+                death_date=(
+                    sippy.EDTF_level1(value=role.death_date)
+                    if role.death_date
+                    else None
+                ),
+            )
+        else:
+            member = sippy.Thing(name=sippy.LangStr(nl=role.name))
+
+        match role:
+            case dcs.Contributor():
+                default_role_name = "Bijdrager"
+            case dcs.Publisher():
+                default_role_name = "Publisher"
+            case dcs.Creator():
+                default_role_name = "Maker"
+            case _:
+                raise AssertionError(
+                    "Role should be creator, publisher or contributor."
+                )
+        role_name = role.role_name if role.role_name else default_role_name
+
+        return sippy.Role(
+            role_name=role_name,
+            creator=member if isinstance(role, dcs.Creator) else None,
+            publisher=member if isinstance(role, dcs.Publisher) else None,
+            contributor=member if isinstance(role, dcs.Contributor) else None,
+        )
+
+    @staticmethod
+    def quantitive_value(
+        measurement: dcs._Measurement | None,
+    ) -> sippy.QuantitativeValue | None:
+
+        if measurement is None:
+            return None
+
+        match measurement.unit_text:
+            case "mm":
+                unit_code = "MMT"
+            case "cm":
+                unit_code = "CMT"
+            case "m":
+                unit_code = "MTR"
+            case "kg":
+                unit_code = "KGM"
+
+        return sippy.QuantitativeValue(
+            value=sippy.Float(value=measurement.value),
+            unit_text=measurement.unit_text,
+            unit_code=unit_code,
+        )
+
+    @staticmethod
+    def creative_work(
+        sip_creative_work: dcs.AnyCreativeWork | dcs.BroadcastEvent,
+    ) -> sippy.AnyCreativeWork | sippy.BroadcastEvent:
+        match sip_creative_work:
+            case dcs.BroadcastEvent():
+                # TODO
+                return sippy.BroadcastEvent()
+            case dcs.Episode():
+                # TODO hardcoded identifier
+                return sippy.Episode(
+                    name=sippy.LangStr(nl=sip_creative_work.name), identifier=""
+                )
+            case dcs.ArchiveComponent():
+                return sippy.ArchiveComponent(
+                    name=sippy.LangStr(nl=sip_creative_work.name)
+                )
+            case dcs.CreativeWorkSeries():
+                return sippy.CreativeWorkSeries(
+                    name=sippy.LangStr(nl=sip_creative_work.name)
+                )
+            case dcs.CreativeWorkSeason():
+                return sippy.CreativeWorkSeason(
+                    name=sippy.LangStr(nl=sip_creative_work.name)
+                )

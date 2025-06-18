@@ -1,11 +1,17 @@
 import typing
 from typing import Self, Literal
 from xml.etree.ElementTree import Element
+import xml.etree.ElementTree as ET
+from datetime import datetime
+from pathlib import Path
 
 from pydantic import BaseModel
 
-from ..parse import Parser
-from ..utils import ParseException
+from .xml_lang import XMLLang
+from ...utils import ParseException, Parser
+
+
+EDTF = str
 
 
 class _Role(BaseModel):
@@ -203,3 +209,87 @@ def parse_is_part_of(root: Element) -> AnyCreativeWork | BroadcastEvent:
             return CreativeWorkSeason.from_xml_tree(root)
         case "schema:BroadcastEvent":
             return BroadcastEvent.from_xml_tree(root)
+
+
+class DCPlusSchema(BaseModel):
+    # basic profile
+    title: XMLLang
+    alternative: XMLLang | None
+    # TODO: extend
+    available: datetime | None
+    description: XMLLang
+    abstract: XMLLang | None
+    created: EDTF
+    issued: EDTF | None
+    publisher: list[Publisher]
+    creator: list[Creator]
+    contributor: list[Contributor]
+    spatial: list[str]
+    temporal: list[str]
+    subject: XMLLang | None
+    language: list[str]
+    license: list[str]
+    rights_holder: str | None
+    rights: XMLLang | None
+    format: str
+    height: Height | None
+    width: Width | None
+    depth: Depth | None
+    weight: Weight | None
+    art_medium: XMLLang | None
+    artform: XMLLang | None
+    is_part_of: list[AnyCreativeWork | BroadcastEvent]
+
+    # film profile
+    country_of_origin: str | None
+    credit_text: list[str]
+    genre: str | None
+
+    @classmethod
+    def from_xml(cls, path: str | Path) -> Self:
+        root = ET.parse(path).getroot()
+        return cls.from_xml_tree(root)
+
+    @classmethod
+    def from_xml_tree(cls, root: Element) -> Self:
+        creators = Parser.element_list(root, "schema:creator")
+        creators += Parser.element_list(root, "dcterms:creator")
+        publishers = Parser.element_list(root, "schema:publisher")
+        publishers += Parser.element_list(root, "dcterms:publisher")
+        contributors = Parser.element_list(root, "schema:contributor")
+        contributors += Parser.element_list(root, "dcterms:contributor")
+
+        is_part_of = [
+            parse_is_part_of(el) for el in Parser.element_list(root, "schema:isPartOf")
+        ]
+
+        return cls(
+            title=XMLLang.new(root, "dcterms:title"),
+            alternative=XMLLang.optional(root, "dcterms:alternative"),
+            available=Parser.optional_datetime(root, "dcterms:available"),
+            description=XMLLang.new(root, "dcterms:description"),
+            abstract=XMLLang.optional(root, "dcterms:abstract"),
+            created=Parser.text(root, "dcterms:created"),
+            issued=Parser.optional_text(root, "dcterms:issued"),
+            spatial=Parser.text_list(root, "dcterms:spatial"),
+            temporal=Parser.text_list(root, "dcterms:temporal"),
+            subject=XMLLang.optional(root, "dcterms:subject"),
+            language=Parser.text_list(root, "dcterms:language"),
+            license=Parser.text_list(root, "dcterms:license"),
+            rights_holder=Parser.optional_text(root, "dcterms:rightsHolder"),
+            rights=XMLLang.optional(root, "dcterms:rights"),
+            format=Parser.text(root, "dcterms:format"),
+            creator=[Creator.from_xml_tree(el) for el in creators],
+            publisher=[Publisher.from_xml_tree(el) for el in publishers],
+            contributor=[Contributor.from_xml_tree(el) for el in contributors],
+            height=Height.from_xml_tree(root, "schema:height"),
+            width=Width.from_xml_tree(root, "schema:width"),
+            depth=Depth.from_xml_tree(root, "schema:depth"),
+            weight=Weight.from_xml_tree(root, "schema:weight"),
+            art_medium=XMLLang.optional(root, "dcterms:artMedium"),
+            artform=XMLLang.optional(root, "dcterms:artform"),
+            is_part_of=is_part_of,
+            country_of_origin=Parser.optional_text(root, "schema:countryOfOrigin"),
+            credit_text=Parser.text_list(root, "schema:creditText"),
+            genre=Parser.optional_text(root, "schema:genre"),
+        )

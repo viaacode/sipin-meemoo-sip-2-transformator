@@ -45,6 +45,7 @@ class EventListener:
         produced_event = Event(
             attributes=EventAttributes(
                 datacontenttype="application/cloudevents+json; charset=utf-8",
+                subject=path
             ),
             data={
                 "metadata_format": "jsonld",

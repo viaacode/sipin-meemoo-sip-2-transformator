@@ -44,9 +44,10 @@ class SIPStructuralInfo:
 
     def __init__(self, sip_path: str | Path) -> None:
         root_path = Path(sip_path)
-        self.package = StructuralInfo.from_path(root_path, root_path)
+        parent_path = root_path.parent
+        self.package = StructuralInfo.from_path(root_path, parent_path)
         self.representations = [
-            StructuralInfo.from_path(p.parent, root_path)
+            StructuralInfo.from_path(p.parent, parent_path)
             for p in self.package.mets.representations
         ]
 
@@ -136,7 +137,7 @@ class SIPStructuralInfo:
         for representation in self.representations:
             repr = representation.premis.representation
             files = [
-                parse_file(file, repr.uuid.value.text)
+                parse_file(file, repr.uuid.value.text, representation.relative_path)
                 for file in representation.premis.files
             ]
             relationship_to_entity = next(
@@ -188,17 +189,22 @@ class SIPStructuralInfo:
         ]
 
 
-def parse_file(file: premis_.File, repr_id: str) -> sippy.File:
+def parse_file(file: premis_.File, repr_id: str, relative_path: Path) -> sippy.File:
     size = next((c.size for c in file.characteristics if c.size is not None))
     fixity = next(iter(next(c.fixity for c in file.characteristics)))
     format = next(iter(next(c.format for c in file.characteristics)))
+
+    if file.original_name is None:
+        raise ParseException()
+
+    original_name = file.original_name.text
 
     return sippy.File(
         id=file.uuid.value.text,
         is_included_in=[sippy.Reference(id=repr_id)],
         size=sippy.NonNegativeInt(value=size.value),
         name=sippy.LangStr(nl="File"),
-        original_name=(file.original_name.text if file.original_name else None),
+        original_name=original_name,
         fixity=sippy.Fixity(
             # TODO: creator
             id=sippy.uuid4(),
@@ -208,7 +214,9 @@ def parse_file(file: premis_.File, repr_id: str) -> sippy.File:
             value=fixity.message_digest.text,
         ),
         format=sippy.FileFormat(id=map_file_format_to_uri(format)),
-        stored_at=sippy.StorageLocation(),
+        stored_at=sippy.StorageLocation(
+            file_path=str(relative_path.joinpath("data").joinpath(original_name))
+        ),
     )
 
 

@@ -27,7 +27,7 @@ OtherContentInformationType = Literal[
 
 class METS(BaseModel):
     other_content_information_type: OtherContentInformationType
-    metsHdr: sippy.METSHdr
+    agents: list[sippy.METSAgent]
     descriptive_metadata: Path | None
     administrative_metadata: Path | None
     representations: list[Path]
@@ -39,7 +39,7 @@ class METS(BaseModel):
         """
         archivist = [
             agent
-            for agent in self.metsHdr.agents
+            for agent in self.agents
             if agent.role == "ARCHIVIST" and agent.type == "ORGANIZATION"
         ]
         if len(archivist) != 1:
@@ -97,7 +97,7 @@ def parse_mets(mets_path: Path) -> METS:
 
     return METS(
         other_content_information_type=other_content_information_type,
-        metsHdr=sippy.METSHdr(agents=agents),
+        agents=agents,
         descriptive_metadata=(
             root.joinpath(dmd_href) if dmd_href is not None else dmd_href
         ),

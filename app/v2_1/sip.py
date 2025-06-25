@@ -31,8 +31,10 @@ def parse_sip(path: str | Path) -> SIP:
     )
 
     return SIP(
+        # TODO: fix hardcoded value
+        profile="https://data.hetarchief.be/id/sip/2.1/basic",
         entity=ie,
         events=structural.events,
-        metsHdr=package_mets.metsHdr,
+        mets_agents=package_mets.agents,
         premis_agents=structural.premis_agents,
     )

@@ -125,7 +125,7 @@ class DC2Sippy:
     def copyright_holder(self) -> list[sippy.Thing]:
         if self.dc_plus_schema.rights_holder is None:
             return []
-        return [sippy.Thing(name=sippy.LangStr(nl=self.dc_plus_schema.rights_holder))]
+        return [sippy.Thing(name=DC2Sippy.lang_str(self.dc_plus_schema.rights_holder))]
 
     @property
     def rights(self) -> list[sippy.LangStr]:
@@ -188,7 +188,7 @@ class DC2Sippy:
         is_person = role.birth_date or role.death_date
         if is_person:
             member = sippy.Person(
-                name=sippy.LangStr(nl=role.name),
+                name=DC2Sippy.lang_str(role.name),
                 birth_date=(
                     sippy.EDTF_level1(value=role.birth_date)
                     if role.birth_date
@@ -201,7 +201,7 @@ class DC2Sippy:
                 ),
             )
         else:
-            member = sippy.Thing(name=sippy.LangStr(nl=role.name))
+            member = sippy.Thing(name=DC2Sippy.lang_str(role.name))
 
         match role:
             case dcs.Contributor():
@@ -258,17 +258,17 @@ class DC2Sippy:
             case dcs.Episode():
                 # TODO hardcoded identifier
                 return sippy.Episode(
-                    name=sippy.LangStr(nl=sip_creative_work.name), identifier=""
+                    name=DC2Sippy.lang_str(sip_creative_work.name), identifier=""
                 )
             case dcs.ArchiveComponent():
                 return sippy.ArchiveComponent(
-                    name=sippy.LangStr(nl=sip_creative_work.name)
+                    name=DC2Sippy.lang_str(sip_creative_work.name)
                 )
             case dcs.CreativeWorkSeries():
                 return sippy.CreativeWorkSeries(
-                    name=sippy.LangStr(nl=sip_creative_work.name)
+                    name=DC2Sippy.lang_str(sip_creative_work.name)
                 )
             case dcs.CreativeWorkSeason():
                 return sippy.CreativeWorkSeason(
-                    name=sippy.LangStr(nl=sip_creative_work.name)
+                    name=DC2Sippy.lang_str(sip_creative_work.name)
                 )

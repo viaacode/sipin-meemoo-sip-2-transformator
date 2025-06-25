@@ -16,14 +16,14 @@ EDTF = str
 
 class _Role(BaseModel):
     role_name: str | None
-    name: str
+    name: XMLLang
     birth_date: str | None
     death_date: str | None
 
     @classmethod
     def from_xml_tree(cls, root: Element) -> Self:
         return cls(
-            name=Parser.text(root, "schema:name"),
+            name=XMLLang.new(root, "schema:name"),
             role_name=root.get("schema:roleName"),
             birth_date=Parser.optional_text(root, "schema:birthDate"),
             death_date=Parser.optional_text(root, "schema:deathDate"),
@@ -103,7 +103,7 @@ CreativeWorkType = Literal[
 
 class Episode(BaseModel):
     type: Literal["schema:Episode"]
-    name: str
+    name: XMLLang
 
     @classmethod
     def from_xml_tree(cls, root: Element) -> Self:
@@ -111,12 +111,12 @@ class Episode(BaseModel):
         if type != "schema:Episode":
             raise ParseException()
 
-        return cls(type=type, name=Parser.text(root, "schema:name"))
+        return cls(type=type, name=XMLLang.new(root, "schema:name"))
 
 
 class ArchiveComponent(BaseModel):
     type: Literal["schema:ArchiveComponent"]
-    name: str
+    name: XMLLang
 
     @classmethod
     def from_xml_tree(cls, root: Element) -> Self:
@@ -124,12 +124,12 @@ class ArchiveComponent(BaseModel):
         if type != "schema:ArchiveComponent":
             raise ParseException()
 
-        return cls(type=type, name=Parser.text(root, "schema:name"))
+        return cls(type=type, name=XMLLang.new(root, "schema:name"))
 
 
 class CreativeWorkSeries(BaseModel):
     type: Literal["schema:CreativeWorkSeries"]
-    name: str
+    name: XMLLang
     position: int | None
     has_parts: list[str]
 
@@ -142,7 +142,7 @@ class CreativeWorkSeries(BaseModel):
 
         return cls(
             type=type,
-            name=Parser.text(root, "schema:name"),
+            name=XMLLang.new(root, "schema:name"),
             position=int(position) if position else None,
             has_parts=Parser.text_list(root, "schema:hasPart/schema:name"),
         )
@@ -150,7 +150,7 @@ class CreativeWorkSeries(BaseModel):
 
 class CreativeWorkSeason(BaseModel):
     type: Literal["schema:CreativeWorkSeason"]
-    name: str
+    name: XMLLang
     season_number: int | None
 
     @classmethod
@@ -162,14 +162,14 @@ class CreativeWorkSeason(BaseModel):
 
         return cls(
             type=type,
-            name=Parser.text(root, "schema:name"),
+            name=XMLLang.new(root, "schema:name"),
             season_number=int(season_number) if season_number else None,
         )
 
 
 class BroadcastEvent(BaseModel):
     type: Literal["schema:BroadcastEvent"]
-    name: str
+    name: XMLLang
 
     @classmethod
     def from_xml_tree(cls, root: Element) -> Self:
@@ -177,7 +177,7 @@ class BroadcastEvent(BaseModel):
         if type != "schema:BroadcastEvent":
             raise ParseException()
 
-        return cls(type=type, name=Parser.text(root, "schema:name"))
+        return cls(type=type, name=XMLLang.new(root, "schema:name"))
 
 
 AnyCreativeWork = Episode | ArchiveComponent | CreativeWorkSeries | CreativeWorkSeason
@@ -229,7 +229,7 @@ class DCPlusSchema(BaseModel):
     subject: XMLLang | None
     language: list[str]
     license: list[str]
-    rights_holder: str | None
+    rights_holder: XMLLang | None
     rights: XMLLang | None
     format: str
     height: Height | None
@@ -276,7 +276,7 @@ class DCPlusSchema(BaseModel):
             subject=XMLLang.optional(root, "dcterms:subject"),
             language=Parser.text_list(root, "dcterms:language"),
             license=Parser.text_list(root, "dcterms:license"),
-            rights_holder=Parser.optional_text(root, "dcterms:rightsHolder"),
+            rights_holder=XMLLang.optional(root, "dcterms:rightsHolder"),
             rights=XMLLang.optional(root, "dcterms:rights"),
             format=Parser.text(root, "dcterms:format"),
             creator=[Creator.from_xml_tree(el) for el in creators],

@@ -17,7 +17,7 @@ class TemporaryObject(BaseModel):
 
     @property
     def uuid(self) -> premis.ObjectIdentifier:
-        if self.id.type.innerText != "UUID":
+        if self.id.type.text != "UUID":
             raise AssertionError()
         return self.id
 
@@ -40,13 +40,13 @@ class AgentMap(BaseModel):
         agent_map: dict[Identifier, premis.Agent] = {}
         for agent in all_agents:
             for id in agent.identifiers:
-                id = Identifier(type=id.type.innerText, value=id.value)
+                id = Identifier(type=id.type.text, value=id.value.text)
                 agent_map[id] = agent
 
         return cls(map=agent_map)
 
     def get(self, link: premis.LinkingAgentIdentifier) -> premis.Agent:
-        id = Identifier(type=link.type.innerText, value=link.value)
+        id = Identifier(type=link.type.text, value=link.value.text)
         return self.map[id]
 
 
@@ -63,7 +63,7 @@ class ObjectMap(BaseModel):
         object_map: dict[Identifier, premis.Object] = {}
         for object in all_objects:
             for id in object.identifiers:
-                id = Identifier(type=id.type.innerText, value=id.value)
+                id = Identifier(type=id.type.text, value=id.value.text)
                 object_map[id] = object
 
         return cls(map=object_map)
@@ -71,10 +71,19 @@ class ObjectMap(BaseModel):
     def get(
         self, link: premis.LinkingObjectIdentifier
     ) -> premis.Object | TemporaryObject:
-        id = Identifier(type=link.type.innerText, value=link.value)
+        id = Identifier(type=link.type.text, value=link.value.text)
         if id not in self.map:
             return TemporaryObject(
-                id=premis.ObjectIdentifier(type=link.type, value=link.value)
+                id=premis.ObjectIdentifier(
+                    type=premis.ObjectIdentifierType(
+                        text=link.type.text,
+                        authority=link.type.authority,
+                        authority_uri=link.type.authority_uri,
+                        value_uri=link.type.value_uri,
+                    ),
+                    value=premis.ObjectIdentifierValue(text=link.value.text),
+                    simple_link=None,
+                )
             )
         return self.map[id]
 
@@ -97,8 +106,7 @@ class StructuralInfo(BaseModel):
         if package_mets.administrative_metadata is None:
             raise ParseException("No package PREMIS found.")
 
-        premis_xml = etree.parse(package_mets.administrative_metadata).getroot()
-        package_premis = premis.Premis.from_xml_tree(premis_xml)
+        package_premis = premis.Premis.from_xml(package_mets.administrative_metadata)
         return package_premis
 
     @staticmethod
@@ -108,8 +116,7 @@ class StructuralInfo(BaseModel):
             repr_mets = parse_mets(path)
             if repr_mets.administrative_metadata is None:
                 continue
-            premis_xml = etree.parse(repr_mets.administrative_metadata).getroot()
-            repr_premis = premis.Premis.from_xml_tree(premis_xml)
+            repr_premis = premis.Premis.from_xml(repr_mets.administrative_metadata)
             representations.append(repr_premis)
         return representations
 
@@ -129,15 +136,15 @@ class StructuralInfo(BaseModel):
 
     def get_package_level_structural_info(self) -> partial[sippy.IntellectualEntity]:
         entity = self.package.entity
-        entity_id = entity.pid.value if entity.pid else entity.uuid.value
+        entity_id = entity.pid.value.text if entity.pid else entity.uuid.value.text
 
         primary_identifiers = [
-            sippy.LocalIdentifier(value=id.value)
+            sippy.LocalIdentifier(value=id.value.text)
             for id in entity.identifiers
             if id.is_primary_identifier
         ]
         local_identifiers = [
-            sippy.LocalIdentifier(value=id.value)
+            sippy.LocalIdentifier(value=id.value.text)
             for id in entity.identifiers
             if id.is_local_identifier
         ]
@@ -147,7 +154,7 @@ class StructuralInfo(BaseModel):
 
         return partial(
             sippy.IntellectualEntity,
-            id=entity.uuid.value,
+            id=entity.uuid.value.text,
             identifier=entity_id,
             primary_identifier=primary_identifiers,
             local_identifier=local_identifiers,
@@ -180,12 +187,12 @@ class StructuralInfo(BaseModel):
         entity_rel = next(
             rel
             for rel in carrier.relationships
-            if rel.sub_type.innerText == "is carrier copy of"
+            if rel.sub_type.text == "is carrier copy of"
         )
         entity_id = entity_rel.related_object_uuid
 
         return sippy.CarrierRepresentation(
-            id=carrier.uuid.value,
+            id=carrier.uuid.value.text,
             represents=sippy.Reference(id=entity_id),
             is_carrier_copy_of=sippy.Reference(id=entity_id),
             stored_at=[],  # TODO: the SIP spec must be finalized before this part can be parsed
@@ -199,16 +206,18 @@ class StructuralInfo(BaseModel):
         digital_representations = []
         for repr_premis in self.representations:
             repr = repr_premis.representation
-            files = [parse_file(file, repr.uuid.value) for file in repr_premis.files]
+            files = [
+                parse_file(file, repr.uuid.value.text) for file in repr_premis.files
+            ]
             relationship_to_entity = next(
                 (
                     rel
                     for rel in repr.relationships
-                    if rel.sub_type.innerText in sippy.Represents
+                    if rel.sub_type.text in sippy.Represents
                 )
             )
 
-            is_x_copy = lambda x: relationship_to_entity.sub_type.innerText == x
+            is_x_copy = lambda x: relationship_to_entity.sub_type.text == x
             is_master = is_x_copy(sippy.Represents.is_master_copy_of)
             is_mezzanine = is_x_copy(sippy.Represents.is_mezzanine_copy_of)
             is_access = is_x_copy(sippy.Represents.is_access_copy_of)
@@ -216,7 +225,7 @@ class StructuralInfo(BaseModel):
             reference = sippy.Reference(id=relationship_to_entity.related_object_uuid)
 
             digital = sippy.DigitalRepresentation(
-                id=repr.uuid.value,
+                id=repr.uuid.value.text,
                 represents=sippy.Reference(
                     id=relationship_to_entity.related_object_uuid
                 ),
@@ -248,9 +257,9 @@ class StructuralInfo(BaseModel):
     def premis_agents(self) -> list[sippy.PremisAgent]:
         return [
             sippy.PremisAgent(
-                identifier=agent.uuid.value,
-                name=agent.name.innerText,
-                type=agent.type.innerText,
+                identifier=agent.uuid.value.text,
+                name=agent.name.text,
+                type=agent.type.text,
             )
             for agent in self.package.agents
             if any(id.is_uuid for id in agent.identifiers)
@@ -263,18 +272,18 @@ def parse_file(file: premis.File, repr_id: str) -> sippy.File:
     format = next(iter(next(c.format for c in file.characteristics)))
 
     return sippy.File(
-        id=file.uuid.value,
+        id=file.uuid.value.text,
         is_included_in=[sippy.Reference(id=repr_id)],
-        size=sippy.NonNegativeInt(value=size),
+        size=sippy.NonNegativeInt(value=size.value),
         name=sippy.LangStr(nl="File"),
-        original_name=(file.original_name.value if file.original_name else None),
+        original_name=(file.original_name.text if file.original_name else None),
         fixity=sippy.Fixity(
             # TODO: creator
             id=sippy.uuid4(),
             type=map_fixity_digest_algorithm_to_uri(
-                fixity.message_digest_algorithm.innerText
+                fixity.message_digest_algorithm.text
             ),
-            value=fixity.message_digest,
+            value=fixity.message_digest.text,
         ),
         format=sippy.FileFormat(id=map_file_format_to_uri(format)),
     )
@@ -296,17 +305,17 @@ def map_fixity_digest_algorithm_to_uri(algorithm: str) -> str:
 def map_file_format_to_uri(format: premis.Format) -> str:
     if not format.registry:
         raise ParseException("Format registry must be present")
-    if format.registry.name.innerText != "PRONOM":
+    if format.registry.name.text != "PRONOM":
         raise ParseException("Only the PRONOM format registry is supported")
 
-    format_key = format.registry.key.innerText
+    format_key = format.registry.key.text
     return "https://www.nationalarchives.gov.uk/pronom/" + format_key
 
 
 def is_digital_relationship(rel: premis.Relationship) -> bool:
     return (
-        rel.sub_type.innerText in sippy.IsRepresentedBy
-        and rel.sub_type.innerText != sippy.IsRepresentedBy.has_carrier_copy
+        rel.sub_type.text in sippy.IsRepresentedBy
+        and rel.sub_type.text != sippy.IsRepresentedBy.has_carrier_copy
     )
 
 
@@ -316,7 +325,7 @@ def filter_digital_relationships_by_name(
     return [
         sippy.Reference(id=rel.related_object_uuid)
         for rel in relationships
-        if is_digital_relationship(rel) and rel.sub_type.innerText == name
+        if is_digital_relationship(rel) and rel.sub_type.text == name
     ]
 
 
@@ -334,11 +343,11 @@ class Event2Sippy(BaseModel):
             object_map=object_map,
         )
 
-        type = cast(sippy.EventClass, map_event_type_to_uri(event.type.innerText))
-        datetime = dateutil.parser.parse(event.datetime)
+        type = cast(sippy.EventClass, map_event_type_to_uri(event.type.text))
+        datetime = dateutil.parser.parse(event.datetime.text)
 
         return sippy.Event(
-            id=event.identifier.value,
+            id=event.identifier.value.text,
             type=type,
             was_associated_with=sippify.was_associated_with,
             started_at_time=sippy.DateTime(value=datetime),
@@ -356,7 +365,7 @@ class Event2Sippy(BaseModel):
     @property
     def result(self) -> list[sippy.Reference | sippy.Object]:
         is_result: Callable[[premis.LinkingObjectIdentifier], bool] = lambda link: any(
-            (role.innerText == "outcome" for role in link.roles)
+            (role.text == "outcome" for role in link.roles)
         )
         result = [
             self.object_map.get(link)
@@ -365,13 +374,13 @@ class Event2Sippy(BaseModel):
         ]
 
         refs = [
-            sippy.Reference(id=obj.uuid.value)
+            sippy.Reference(id=obj.uuid.value.text)
             for obj in result
             if isinstance(obj, premis.Object)
         ]
 
         objects = [
-            sippy.Object(id=obj.uuid.value)
+            sippy.Object(id=obj.uuid.value.text)
             for obj in result
             if isinstance(obj, TemporaryObject)
         ]
@@ -381,18 +390,20 @@ class Event2Sippy(BaseModel):
     @property
     def source(self) -> list[sippy.Reference]:
         is_source: Callable[[premis.LinkingObjectIdentifier], bool] = lambda link: any(
-            (role.innerText == "source" for role in link.roles)
+            (role.text == "source" for role in link.roles)
         )
         source_objects = [
             self.object_map.get(link)
             for link in self.event.linking_object_identifiers
             if is_source(link)
         ]
-        return [sippy.Reference(id=obj.uuid.value) for obj in source_objects]
+        return [sippy.Reference(id=obj.uuid.value.text) for obj in source_objects]
 
     @property
     def note(self) -> str | None:
-        details = [info.detail for info in self.event.detail_information if info.detail]
+        details = [
+            info.detail.text for info in self.event.detail_information if info.detail
+        ]
         if len(details) == 0:
             return None
         return "\\n".join(details)
@@ -400,9 +411,7 @@ class Event2Sippy(BaseModel):
     @property
     def outcome(self) -> sippy.URIRef[sippy.EventOutcome] | None:
         outcomes = [
-            info.outcome.innerText
-            for info in self.event.outcome_information
-            if info.outcome
+            info.outcome.text for info in self.event.outcome_information if info.outcome
         ]
         if len(outcomes) == 0:
             return None
@@ -425,7 +434,7 @@ class Event2Sippy(BaseModel):
         outcome_note = "\\n".join(
             [
                 "\\n".join(
-                    [detail.note for detail in info.outcome_detail if detail.note]
+                    [detail.note.text for detail in info.outcome_detail if detail.note]
                 )
                 for info in self.event.outcome_information
             ]
@@ -437,7 +446,7 @@ class Event2Sippy(BaseModel):
     @property
     def implemented_by(self) -> sippy.AnyOrganization:
         is_implementer: Callable[[premis.LinkingAgentIdentifier], bool] = (
-            lambda link: any([role.innerText == "implementer" for role in link.roles])
+            lambda link: any([role.text == "implementer" for role in link.roles])
         )
         agents = (
             self.agent_map.get(link)
@@ -446,14 +455,14 @@ class Event2Sippy(BaseModel):
         )
         implementer_agent = next(agents)
         return sippy.Organization(
-            identifier=implementer_agent.primary_identifier.value,
-            pref_label=sippy.LangStr(nl=implementer_agent.name.innerText),
+            identifier=implementer_agent.primary_identifier.value.text,
+            pref_label=sippy.LangStr(nl=implementer_agent.name.text),
         )
 
     @property
     def executed_by(self) -> sippy.SoftwareAgent | None:
         is_executer: Callable[[premis.LinkingAgentIdentifier], bool] = lambda link: any(
-            [role.innerText == "executer" for role in link.roles]
+            [role.text == "executer" for role in link.roles]
         )
         agents = (
             self.agent_map.get(link)
@@ -465,8 +474,8 @@ class Event2Sippy(BaseModel):
             return None
 
         return sippy.SoftwareAgent(
-            id=executer_agent.primary_identifier.value,
-            name=sippy.LangStr(nl=executer_agent.name.innerText),
+            id=executer_agent.primary_identifier.value.text,
+            name=sippy.LangStr(nl=executer_agent.name.text),
             model=None,
             serial_number=None,
             version=None,
@@ -475,7 +484,7 @@ class Event2Sippy(BaseModel):
     @property
     def instrument(self) -> list[sippy.HardwareAgent]:
         is_instrument: Callable[[premis.LinkingAgentIdentifier], bool] = (
-            lambda link: any([role.innerText == "instrument" for role in link.roles])
+            lambda link: any([role.text == "instrument" for role in link.roles])
         )
         instrument_agents = [
             self.agent_map.get(link)
@@ -484,7 +493,7 @@ class Event2Sippy(BaseModel):
         ]
         return [
             sippy.HardwareAgent(
-                name=sippy.LangStr(nl=ag.name.innerText),
+                name=sippy.LangStr(nl=ag.name.text),
                 model=None,
                 serial_number=None,
                 version=None,
@@ -506,8 +515,8 @@ class Event2Sippy(BaseModel):
         # TODO: could also be an organization
         return [
             sippy.Person(
-                id=agent.uuid.value,
-                name=sippy.LangStr(nl=agent.name.innerText),
+                id=agent.uuid.value.text,
+                name=sippy.LangStr(nl=agent.name.text),
                 birth_date=None,
                 death_date=None,
             )

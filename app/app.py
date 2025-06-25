@@ -1,4 +1,4 @@
-from cloudevents.events import Event, EventAttributes, PulsarBinding
+from cloudevents.events import Event, EventAttributes, EventOutcome, PulsarBinding
 from viaa.configuration import ConfigParser
 from viaa.observability import logging
 
@@ -32,24 +32,26 @@ class EventListener:
             event (Event): The incoming event to process.
         """
         is_event_success = event.has_successful_outcome()
-        is_validation_success = event.get_data()["outcome"] != "success"
+        is_validation_success = event.get_data()["outcome"] == "success"
         if not is_event_success or not is_validation_success:
             self.log.info(f"Dropping non successful event: {event.get_data()}")
             return
 
-        self.log.info(f"Start handling of {event.get_attributes()['subject']}.")
+        subject = event.get_attributes()["subject"]
+        self.log.info(f"Start handling of {subject}.")
         path = event.get_data()["sip_path"]
         sip = v2_1.parse_sip(path)
-        jsonld = sip.to_jsonld()
+        data = sip.serialize()
 
         produced_event = Event(
             attributes=EventAttributes(
                 datacontenttype="application/cloudevents+json; charset=utf-8",
+                correlation_id=event.correlation_id,
+                source="sipin-meemoo-sip-2-transformator",
+                subject=subject,
+                outcome=EventOutcome.SUCCESS,
             ),
-            data={
-                "metadata_format": "jsonld",
-                "metadata": jsonld,
-            },
+            data=data,
         )
 
         self.pulsar_client.produce_event(

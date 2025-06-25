@@ -4,8 +4,7 @@ from sippy.sip import SIP, IntellectualEntity
 from sippy.utils import Config
 
 from .descriptive import parse_descriptive
-from .mets import parse_mets
-from .preservation.preservation import StructuralInfo
+from .preservation.premis import SIPStructuralInfo
 
 
 Config.SET_FIELDS_EXPLICIT = False
@@ -16,11 +15,9 @@ def parse_sip(path: str | Path) -> SIP:
     Parse a meemoo SIP given its root folder.
     """
 
-    mets_path = Path(path).joinpath("METS.xml")
-    package_mets = parse_mets(mets_path)
-
-    structural = StructuralInfo.from_mets(package_mets)
-    ie_structural = structural.intellectual_entity
+    structural = SIPStructuralInfo(path)
+    package_mets = structural.package.mets
+    ie_structural = structural.intellectual_entity_info
     ie_descriptive = parse_descriptive(package_mets)
 
     ie = IntellectualEntity(

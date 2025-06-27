@@ -54,7 +54,7 @@ class METS(BaseModel):
 
     @property
     def entity_type(self) -> sippy.EntityClass:
-        # TODO: this should come from the descriptive metdata
+        # TODO: this should come from the descriptive metadata
         return sippy.EntityClass.entity
 
 

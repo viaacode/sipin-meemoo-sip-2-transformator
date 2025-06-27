@@ -1,4 +1,3 @@
-from typing import Any
 from itertools import chain
 from pathlib import Path
 from functools import partial

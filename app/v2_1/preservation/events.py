@@ -1,4 +1,4 @@
-from typing import cast, Callable, TYPE_CHECKING
+from typing import cast, TYPE_CHECKING
 
 import sippy
 from ..models import premis as premis_
@@ -35,9 +35,9 @@ class Event2Sippy:
         )
 
     def result(self, event: premis_.Event) -> list[sippy.Reference | sippy.Object]:
-        is_result: Callable[[premis_.LinkingObjectIdentifier], bool] = lambda link: any(
-            (role.text == "outcome" for role in link.roles)
-        )
+        def is_result(link: premis_.LinkingObjectIdentifier) -> bool:
+            return any((role.text == "outcome" for role in link.roles))
+
         result = [
             self.object_map.get(link)
             for link in event.linking_object_identifiers
@@ -59,9 +59,9 @@ class Event2Sippy:
         return refs + objects
 
     def source(self, event: premis_.Event) -> list[sippy.Reference]:
-        is_source: Callable[[premis_.LinkingObjectIdentifier], bool] = lambda link: any(
-            (role.text == "source" for role in link.roles)
-        )
+        def is_source(link: premis_.LinkingObjectIdentifier) -> bool:
+            return any((role.text == "source" for role in link.roles))
+
         source_objects = [
             self.object_map.get(link)
             for link in event.linking_object_identifiers
@@ -109,9 +109,9 @@ class Event2Sippy:
         return outcome_note
 
     def implemented_by(self, event: premis_.Event) -> sippy.AnyOrganization:
-        is_implementer: Callable[[premis_.LinkingAgentIdentifier], bool] = (
-            lambda link: any([role.text == "implementer" for role in link.roles])
-        )
+        def is_implementer(link: premis_.LinkingAgentIdentifier) -> bool:
+            return any([role.text == "implementer" for role in link.roles])
+
         agents = (
             self.agent_map.get(link)
             for link in event.linking_agent_identifiers
@@ -124,9 +124,9 @@ class Event2Sippy:
         )
 
     def executed_by(self, event: premis_.Event) -> sippy.SoftwareAgent | None:
-        is_executer: Callable[[premis_.LinkingAgentIdentifier], bool] = (
-            lambda link: any([role.text == "executer" for role in link.roles])
-        )
+        def is_executer(link: premis_.LinkingAgentIdentifier) -> bool:
+            return any([role.text == "executer" for role in link.roles])
+
         agents = (
             self.agent_map.get(link)
             for link in event.linking_agent_identifiers
@@ -145,9 +145,9 @@ class Event2Sippy:
         )
 
     def instrument(self, event: premis_.Event) -> list[sippy.HardwareAgent]:
-        is_instrument: Callable[[premis_.LinkingAgentIdentifier], bool] = (
-            lambda link: any([role.text == "instrument" for role in link.roles])
-        )
+        def is_instrument(link: premis_.LinkingAgentIdentifier) -> bool:
+            return any([role.text == "instrument" for role in link.roles])
+
         instrument_agents = [
             self.agent_map.get(link)
             for link in event.linking_agent_identifiers
@@ -164,9 +164,9 @@ class Event2Sippy:
         ]
 
     def was_associated_with(self, event: premis_.Event) -> list[sippy.Agent]:
-        has_no_roles: Callable[[premis_.LinkingAgentIdentifier], bool] = (
-            lambda link: len(link.roles) == 0
-        )
+        def has_no_roles(link: premis_.LinkingAgentIdentifier) -> bool:
+            return len(link.roles) == 0
+
         associated_agents = [
             self.agent_map.get(link)
             for link in event.linking_agent_identifiers

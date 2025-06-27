@@ -148,12 +148,22 @@ class SIPStructuralInfo:
                 )
             )
 
-            is_x_copy = lambda x: relationship_to_entity.sub_type.text == x
-            is_master = is_x_copy(sippy.Represents.is_master_copy_of)
-            is_mezzanine = is_x_copy(sippy.Represents.is_mezzanine_copy_of)
-            is_access = is_x_copy(sippy.Represents.is_access_copy_of)
-            is_transcription = is_x_copy(sippy.Represents.is_transcription_copy_of)
             reference = sippy.Reference(id=relationship_to_entity.related_object_uuid)
+
+            is_master_copy_of = None
+            is_mezzanine_copy_of = None
+            is_access_copy_of = None
+            is_transcription_copy_of = None
+
+            match relationship_to_entity.sub_type.text:
+                case sippy.Represents.is_master_copy_of:
+                    is_master_copy_of = reference
+                case sippy.Represents.is_mezzanine_copy_of:
+                    is_mezzanine_copy_of = reference
+                case sippy.Represents.is_access_copy_of:
+                    is_access_copy_of = reference
+                case sippy.Represents.is_transcription_copy_of:
+                    is_transcription_copy_of = reference
 
             digital = sippy.DigitalRepresentation(
                 id=repr.uuid.value.text,
@@ -162,10 +172,10 @@ class SIPStructuralInfo:
                 ),
                 includes=files,
                 name=sippy.LangStr(nl="Digital Representation"),
-                is_master_copy_of=reference if is_master else None,
-                is_mezzanine_copy_of=reference if is_mezzanine else None,
-                is_access_copy_of=reference if is_access else None,
-                is_transcription_copy_of=reference if is_transcription else None,
+                is_master_copy_of=is_master_copy_of,
+                is_mezzanine_copy_of=is_mezzanine_copy_of,
+                is_access_copy_of=is_access_copy_of,
+                is_transcription_copy_of=is_transcription_copy_of,
             )
             digital_representations.append(digital)
 

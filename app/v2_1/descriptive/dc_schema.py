@@ -44,7 +44,6 @@ def parse_dc_schema(path: Path) -> partial[sippy.IntellectualEntity]:
 
 
 class DC2Sippy:
-
     def __init__(self, dc_plus_schema: dcs.DCPlusSchema) -> None:
         self.dc_plus_schema = dc_plus_schema
 
@@ -117,8 +116,8 @@ class DC2Sippy:
     @property
     def license(self) -> list[sippy.Concept]:
         return [
-            sippy.Concept(id="https://data.hetarchief.be/id/license/" + l)
-            for l in self.dc_plus_schema.license
+            sippy.Concept(id="https://data.hetarchief.be/id/license/" + license)
+            for license in self.dc_plus_schema.license
         ]
 
     @property
@@ -233,7 +232,6 @@ class DC2Sippy:
     def quantitive_value(
         measurement: dcs._Measurement | None,
     ) -> sippy.QuantitativeValue | None:
-
         if measurement is None:
             return None
 

@@ -16,7 +16,7 @@ class PulsarClient:
         self.pulsar_config = config_parser.app_cfg["pulsar"]
 
         self.client = Client(
-            f'pulsar://{self.pulsar_config["host"]}:{self.pulsar_config["port"]}'
+            f"pulsar://{self.pulsar_config['host']}:{self.pulsar_config['port']}"
         )
         self.consumer = self.client.subscribe(
             self.pulsar_config["consumer_topic"], "sipin-meemoo-sip-2-transformator"

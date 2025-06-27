@@ -30,9 +30,9 @@ class AgentMap(BaseModel):
     @classmethod
     def create(cls, structural: "SIPStructuralInfo") -> Self:
         all_agents: list[premis.Agent] = []
-        all_agents.extend(structural.package.premis.agents)
+        all_agents.extend(structural.package.premis_info.agents)
         for repr in structural.representations:
-            all_agents.extend(repr.premis.agents)
+            all_agents.extend(repr.premis_info.agents)
 
         agent_map: dict[Identifier, premis.Agent] = {}
         for agent in all_agents:
@@ -53,9 +53,9 @@ class ObjectMap(BaseModel):
     @classmethod
     def create(cls, structural: "SIPStructuralInfo") -> Self:
         all_objects: list[premis.Object] = []
-        all_objects.extend(structural.package.premis.objects)
+        all_objects.extend(structural.package.premis_info.objects)
         for repr in structural.representations:
-            all_objects.extend(repr.premis.objects)
+            all_objects.extend(repr.premis_info.objects)
 
         object_map: dict[Identifier, premis.Object] = {}
         for object in all_objects:

@@ -15,7 +15,7 @@ def parse_dc_schema(path: Path) -> partial[sippy.IntellectualEntity]:
         sippy.IntellectualEntity,
         name=sippify.title,
         alternative_name=sippify.alternative,
-        # TODO: dcterms:extend
+        duration=sippify.extent,
         available=sippify.available,
         description=sippify.description,
         abstract=sippify.abstract,
@@ -172,6 +172,12 @@ class DC2Sippy:
     @property
     def credit_text(self) -> list[sippy.LangStr]:
         return [sippy.LangStr(nl=s) for s in self.dc_plus_schema.credit_text]
+
+    @property
+    def extent(self) -> sippy.Duration | None:
+        if self.dc_plus_schema.extent is None:
+            return None
+        return sippy.Duration(value=self.dc_plus_schema.extent)
 
     @staticmethod
     def optional_lang_str(str: XMLLang | None) -> sippy.LangStr | None:

@@ -1,9 +1,6 @@
 from lxml.etree import _Element
 from sippy.utils import LangStr
 from xml.etree.ElementTree import Element
-from datetime import datetime
-
-import dateutil.parser
 
 
 class ParseException(Exception): ...
@@ -142,12 +139,3 @@ class Parser:
     @staticmethod
     def element_list(root: Element, path: str) -> list[Element]:
         return root.findall(path, namespaces=ns)
-
-    @staticmethod
-    def optional_datetime(root: Element, path: str) -> datetime | None:
-        element = root.find(path, namespaces=ns)
-        if element is None:
-            return None
-        if element.text is None:
-            return None
-        return dateutil.parser.parse(element.text)

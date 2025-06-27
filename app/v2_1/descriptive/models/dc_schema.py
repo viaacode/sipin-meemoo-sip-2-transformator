@@ -2,7 +2,6 @@ import typing
 from typing import Self, Literal
 from xml.etree.ElementTree import Element
 import xml.etree.ElementTree as ET
-from datetime import datetime
 from pathlib import Path
 
 from pydantic import BaseModel
@@ -211,12 +210,16 @@ def parse_is_part_of(root: Element) -> AnyCreativeWork | BroadcastEvent:
             return BroadcastEvent.from_xml_tree(root)
 
 
+xsd_duration = str
+xsd_timedelta = str
+
+
 class DCPlusSchema(BaseModel):
     # basic profile
     title: XMLLang
     alternative: XMLLang | None
-    # TODO: extend
-    available: datetime | None
+    extent: xsd_duration | None
+    available: xsd_timedelta | None
     description: XMLLang
     abstract: XMLLang | None
     created: EDTF
@@ -266,7 +269,8 @@ class DCPlusSchema(BaseModel):
         return cls(
             title=XMLLang.new(root, "dcterms:title"),
             alternative=XMLLang.optional(root, "dcterms:alternative"),
-            available=Parser.optional_datetime(root, "dcterms:available"),
+            extent=Parser.optional_text(root, "dcterms:extent"),
+            available=Parser.optional_text(root, "dcterms:available"),
             description=XMLLang.new(root, "dcterms:description"),
             abstract=XMLLang.optional(root, "dcterms:abstract"),
             created=Parser.text(root, "dcterms:created"),

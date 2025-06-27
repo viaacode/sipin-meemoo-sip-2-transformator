@@ -1,10 +1,6 @@
 from typing import cast, Callable, TYPE_CHECKING
 
-import dateutil.parser
-from pydantic import BaseModel
-
 import sippy
-
 from ..models import premis as premis_
 
 from .premis_utils import AgentMap, ObjectMap, TemporaryObject
@@ -21,14 +17,13 @@ class Event2Sippy:
 
     def parse(self, event: premis_.Event) -> sippy.Event:
         type = cast(sippy.EventClass, map_event_type_to_uri(event.type.text))
-        datetime = dateutil.parser.parse(event.datetime.text)
 
         return sippy.Event(
             id=event.identifier.value.text,
             type=type,
             was_associated_with=self.was_associated_with(event),
-            started_at_time=sippy.DateTime(value=datetime),
-            ended_at_time=sippy.DateTime(value=datetime),
+            started_at_time=sippy.DateTime(value=event.datetime.text),
+            ended_at_time=sippy.DateTime(value=event.datetime.text),
             implemented_by=self.implemented_by(event),
             note=self.note(event),
             outcome=self.outcome(event),

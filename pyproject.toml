@@ -9,7 +9,6 @@ dependencies = [
     "pulsar-client",
     "meemoo-cloudevents",
     "lxml==5.4.0",
-    "python-dateutil==2.9.0.post0",
     "sipin-eark-models==0.0.1",
     "SIP.py==0.0.1",
 ]

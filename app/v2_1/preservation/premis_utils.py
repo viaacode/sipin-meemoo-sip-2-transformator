@@ -6,7 +6,7 @@ import eark_models.premis.v3_0 as premis
 
 
 if TYPE_CHECKING:
-    from .premis import SIPStructuralInfo
+    from .premis import PreservationParser
 
 
 class TemporaryObject(BaseModel):
@@ -28,7 +28,7 @@ class AgentMap(BaseModel):
     map: dict[Identifier, premis.Agent]
 
     @classmethod
-    def create(cls, structural: "SIPStructuralInfo") -> Self:
+    def create(cls, structural: "PreservationParser") -> Self:
         all_agents: list[premis.Agent] = []
         all_agents.extend(structural.package.premis_info.agents)
         for repr in structural.representations:
@@ -51,7 +51,7 @@ class ObjectMap(BaseModel):
     map: dict[Identifier, premis.Object]
 
     @classmethod
-    def create(cls, structural: "SIPStructuralInfo") -> Self:
+    def create(cls, structural: "PreservationParser") -> Self:
         all_objects: list[premis.Object] = []
         all_objects.extend(structural.package.premis_info.objects)
         for repr in structural.representations:

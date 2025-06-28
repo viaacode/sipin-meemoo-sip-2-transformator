@@ -1,6 +1,5 @@
-from typing import Self, cast
+from typing import cast
 from functools import partial
-from pathlib import Path
 
 from pydantic.dataclasses import dataclass
 
@@ -9,47 +8,16 @@ from ..models import premis
 
 from .premis_utils import AgentMap, ObjectMap, TemporaryObject
 
-from ..mets import METS, parse_mets
 from ..utils import ParseException
 
 
+from ..level import Level
+
+
 @dataclass
-class StructuralInfo:
-    """Structural metadata of either the package level or the representation level."""
-
-    relative_path: Path
-    mets: METS
-    premis_info: premis.Premis
-
-    @classmethod
-    def from_path(cls, path: Path, sip_path: Path) -> Self:
-        mets_path = path.joinpath("METS.xml")
-        mets = parse_mets(mets_path)
-
-        return cls(
-            mets=mets,
-            premis_info=StructuralInfo.parse_premis(mets),
-            relative_path=path.relative_to(sip_path),
-        )
-
-    @staticmethod
-    def parse_premis(mets: METS) -> premis.Premis:
-        if mets.administrative_metadata is None:
-            raise ParseException("No PREMIS found.")
-        return premis.Premis.from_xml(mets.administrative_metadata)
-
-
-class SIPStructuralInfo:
-    """Structural metadata of the entire SIP."""
-
-    def __init__(self, sip_path: str | Path) -> None:
-        root_path = Path(sip_path)
-        parent_path = root_path.parent
-        self.package = StructuralInfo.from_path(root_path, parent_path)
-        self.representations = [
-            StructuralInfo.from_path(p.parent, parent_path)
-            for p in self.package.mets.representations
-        ]
+class PreservationParser:
+    package: Level
+    representations: list[Level]
 
     @property
     def intellectual_entity_info(self) -> partial[sippy.IntellectualEntity]:
@@ -110,11 +78,9 @@ class SIPStructuralInfo:
         """
 
         try:
-            carrier = self.package.premis_info.representation
+            _ = self.package.premis_info.representation
         except StopIteration:
-            # No carrier was found
             return None
-
         return CarrierRepresentationParser(self.package).parse_carrier_representation()
 
     def get_digital_representations(self) -> list[sippy.DigitalRepresentation]:
@@ -182,15 +148,16 @@ def filter_digital_relationships_by_name(
 
 @dataclass
 class RepresentationLevelParser:
-    sip_representation: StructuralInfo
+    representation_level: Level
 
     def is_digital_relationship(self, relationship: premis.Relationship) -> bool:
         return relationship.sub_type.text in sippy.Represents
 
     def parse_digital_representation(self) -> sippy.DigitalRepresentation:
-        premis_repr = self.sip_representation.premis_info.representation
+        premis_repr = self.representation_level.premis_info.representation
         files = [
-            self.parse_file(file) for file in self.sip_representation.premis_info.files
+            self.parse_file(file)
+            for file in self.representation_level.premis_info.files
         ]
         relationship_to_entity = next(
             (
@@ -237,9 +204,9 @@ class RepresentationLevelParser:
             raise ParseException()
 
         original_name = file.original_name.text
-        relative_path = self.sip_representation.relative_path
+        relative_path = self.representation_level.relative_path
 
-        premis_representation = self.sip_representation.premis_info.representation
+        premis_representation = self.representation_level.premis_info.representation
         representation_identifier = premis_representation.uuid.value.text
 
         return sippy.File(
@@ -265,13 +232,13 @@ class RepresentationLevelParser:
 
 @dataclass
 class CarrierRepresentationParser:
-    sip_package: StructuralInfo
+    package_level: Level
 
     def is_carrier_relationship(self, relationship: premis.Relationship) -> bool:
         return relationship.sub_type.text == "is carrier copy of"
 
     def parse_carrier_representation(self) -> sippy.CarrierRepresentation:
-        carrier = self.sip_package.premis_info.representation
+        carrier = self.package_level.premis_info.representation
 
         relationship_to_entity = next(
             rel for rel in carrier.relationships if self.is_carrier_relationship(rel)
@@ -287,7 +254,7 @@ class CarrierRepresentationParser:
 
 
 class EventParser:
-    def __init__(self, structural: "SIPStructuralInfo") -> None:
+    def __init__(self, structural: "PreservationParser") -> None:
         self.agent_map = AgentMap.create(structural)
         self.object_map = ObjectMap.create(structural)
 

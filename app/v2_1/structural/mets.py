@@ -8,7 +8,7 @@ from pydantic import BaseModel
 
 import sippy
 
-from .utils import (
+from ..utils import (
     ParseException,
     xpath_element_list,
     xpath_text_list,

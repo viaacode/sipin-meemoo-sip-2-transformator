@@ -2,14 +2,14 @@ from itertools import chain
 from pathlib import Path
 from functools import partial
 
-from eark_models.mods.v3_7 import Mods
+from ..models import mods
 import sippy
 
 from ..utils import ParseException
 
 
 def parse_mods(path: Path) -> partial[sippy.IntellectualEntity]:
-    desc = Mods.from_xml(path)
+    desc = mods.Mods.from_xml(path)
 
     main_title_info = next(info for info in desc.title_infos if info.type is None)
     main_title = next(iter(main_title_info.titles))

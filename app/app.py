@@ -1,3 +1,5 @@
+from typing import Any, Callable
+
 from cloudevents.events import Event, EventAttributes, EventOutcome, PulsarBinding
 from viaa.configuration import ConfigParser
 from viaa.observability import logging
@@ -40,18 +42,53 @@ class EventListener:
         subject = event.get_attributes()["subject"]
         self.log.info(f"Start handling of {subject}.")
         path = event.get_data()["sip_path"]
-        sip = v2_1.parse_sip(path)
-        data = sip.serialize()
+        profile = event.get_data()["sip_profile"]
 
+        # TODO: remove hardcoded profile - only necessairy for demo
+        profile = "https://data.hetarchief.be/id/sip/2.1/film"
+
+        transformator_fn = self.get_sip_transformator(profile)
+        data = transformator_fn(path)
+        self.produce_success_event(event, data)
+
+    def get_sip_transformator(self, profile: str) -> Callable[[str], dict[str, Any]]:
+        parts = profile.split("/")
+        version = parts[-2]
+
+        match version:
+            case "2.1":
+                return v2_1.transform_sip
+            case _:
+                raise ValueError("Invalid SIP profile found in received message.")
+
+    def produce_success_event(self, event: Event, data: dict[str, Any]):
+        subject = event.get_attributes()["subject"]
         produced_event = Event(
             attributes=EventAttributes(
                 datacontenttype="application/cloudevents+json; charset=utf-8",
                 correlation_id=event.correlation_id,
-                source="sipin-meemoo-sip-2-transformator",
+                source=APP_NAME,
                 subject=subject,
                 outcome=EventOutcome.SUCCESS,
             ),
             data=data,
+        )
+
+        self.pulsar_client.produce_event(
+            self.pulsar_client.pulsar_config["producer_topic"], produced_event
+        )
+
+    def produce_fail_event(self, event: Event):
+        subject = event.get_attributes()["subject"]
+        produced_event = Event(
+            attributes=EventAttributes(
+                datacontenttype="application/cloudevents+json; charset=utf-8",
+                correlation_id=event.correlation_id,
+                source=APP_NAME,
+                subject=subject,
+                outcome=EventOutcome.FAIL,
+            ),
+            data={},
         )
 
         self.pulsar_client.produce_event(
@@ -69,13 +106,14 @@ class EventListener:
             except _pulsar.Timeout:
                 continue
 
+            event = PulsarBinding.from_protocol(msg)  # type: ignore
             try:
-                event = PulsarBinding.from_protocol(msg)  # type: ignore
                 self.handle_incoming_message(event)
                 self.pulsar_client.acknowledge(msg)
             except Exception as e:
                 # Catch and log any errors during message processing
                 self.log.error(f"Error: {e}")
                 self.pulsar_client.negative_acknowledge(msg)
+                self.produce_fail_event(event)
 
         self.pulsar_client.close()

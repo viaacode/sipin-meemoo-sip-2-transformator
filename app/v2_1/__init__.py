@@ -1,5 +1,5 @@
-from .sip import parse_sip
+from .sip import transform_sip
 
 __all__ = [
-    "parse_sip",
+    "transform_sip",
 ]

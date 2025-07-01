@@ -3,6 +3,7 @@ from queue import Queue
 from time import sleep
 import json
 
+from cloudevents.events import EventOutcome
 import pytest
 from testcontainers.core.container import DockerContainer
 import pulsar
@@ -108,6 +109,7 @@ def test_message(producer: pulsar.Producer, consumer: pulsar.Consumer):
         "data": {
             "outcome": "success",
             "sip_path": "tests/sip-examples/2.1/film_standard_mkv/uuid-2746e598-75cd-47b5-9a3e-8df18e98bb95",
+            "sip_profile": "https://data.hetarchief.be/id/sip/2.1/film",
             "message": "Path '/opt/sipin/unzip/AWH12931330.bag.zip' is a valid bag",
         },
     }
@@ -142,4 +144,5 @@ def test_message(producer: pulsar.Producer, consumer: pulsar.Consumer):
     event = PulsarBinding.from_protocol(message)  # type: ignore
 
     assert event.correlation_id == event_properties["correlation_id"]
+    assert event.outcome == EventOutcome.SUCCESS
     assert "metadata" in event.get_data()

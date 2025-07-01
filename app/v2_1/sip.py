@@ -1,4 +1,4 @@
-from typing import Self
+from typing import Self, Any
 from pathlib import Path
 
 from pydantic.dataclasses import dataclass
@@ -32,6 +32,11 @@ class SIP:
         )
 
 
+def transform_sip(path: str) -> dict[str, Any]:
+    sip = parse_sip(path)
+    return sip.serialize()
+
+
 def parse_sip(path: str | Path) -> sippy.SIP:
     """
     Parse a meemoo SIP given its root folder.
@@ -51,8 +56,7 @@ def parse_sip(path: str | Path) -> sippy.SIP:
     )
 
     return sippy.SIP(
-        # TODO: fix hardcoded value
-        profile="https://data.hetarchief.be/id/sip/2.1/basic",
+        profile=sip.package.mets_info.other_content_information_type,
         entity=ie,
         events=preservation_parser.events,
         mets_agents=package_mets.agents,

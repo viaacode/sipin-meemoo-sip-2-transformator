@@ -114,14 +114,19 @@ class DC2Sippy:
         return self.dc_plus_schema.language
 
     @property
-    def license(self) -> list[sippy.Concept]:
+    def license(self) -> list[sippy.Concept | sippy.URIRef[sippy.License]]:
         return [
-            sippy.Concept(id="https://data.hetarchief.be/id/license/" + license)
+            sippy.Concept(
+                id="https://data.hetarchief.be/id/license/" + license,
+                pref_label=sippy.LangStr.codes(nl=license),
+            )
             for license in self.dc_plus_schema.license
         ]
 
     @property
-    def copyright_holder(self) -> list[sippy.Thing]:
+    def copyright_holder(
+        self,
+    ) -> list[sippy.Thing | sippy.AnyOrganization | sippy.Person]:
         if self.dc_plus_schema.rights_holder is None:
             return []
         return [sippy.Thing(name=DC2Sippy.lang_str(self.dc_plus_schema.rights_holder))]

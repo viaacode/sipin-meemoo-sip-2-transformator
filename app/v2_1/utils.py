@@ -25,6 +25,8 @@ ns = {
     # premis
     "premis": "http://www.loc.gov/premis/v3",
     "haObj": "https://data.hetarchief.be/ns/object/",
+    # carrier significant properties extension
+    "hasip": "https://data.hetarchief.be/ns/sip/",
 }
 
 
@@ -139,3 +141,14 @@ class Parser:
     @staticmethod
     def element_list(root: Element, path: str) -> list[Element]:
         return root.findall(path, namespaces=ns)
+
+    @staticmethod
+    def element(root: Element, path: str) -> Element:
+        element = root.find(path, namespaces=ns)
+        if element is None:
+            raise ParseException(f"No element found at {path}")
+        return element
+
+    @staticmethod
+    def optional_element(root: Element, path: str) -> Element | None:
+        return root.find(path, namespaces=ns)

@@ -1,12 +1,15 @@
 from typing import cast
-from functools import partial
+from functools import partial, cached_property
+from itertools import chain
 
 from pydantic.dataclasses import dataclass
 
 import sippy
+from sippy.objects import ColoringType
 from ..models import premis
 
 from .premis_utils import AgentMap, ObjectMap, TemporaryObject
+from . import film
 
 from ..utils import ParseException
 
@@ -81,7 +84,8 @@ class PreservationParser:
             _ = self.package.premis_info.representation
         except StopIteration:
             return None
-        return CarrierRepresentationParser(self.package).parse_carrier_representation()
+        parser = CarrierRepresentationParser(self.package)
+        return parser.parse_carrier_representation()
 
     def get_digital_representations(self) -> list[sippy.DigitalRepresentation]:
         """
@@ -238,19 +242,107 @@ class CarrierRepresentationParser:
         return relationship.sub_type.text == "is carrier copy of"
 
     def parse_carrier_representation(self) -> sippy.CarrierRepresentation:
-        carrier = self.package_level.premis_info.representation
-
-        relationship_to_entity = next(
-            rel for rel in carrier.relationships if self.is_carrier_relationship(rel)
-        )
-        entity_id = sippy.Reference(id=relationship_to_entity.related_object_uuid)
-
         return sippy.CarrierRepresentation(
-            id=carrier.uuid.value.text,
-            represents=entity_id,
-            is_carrier_copy_of=entity_id,
-            stored_at=[],  # TODO: the SIP spec must be finalized before this part can be parsed
+            id=self.premis_carrier.uuid.value.text,
+            represents=self.reference_to_entity,
+            is_carrier_copy_of=self.reference_to_entity,
+            stored_at=[
+                *self.image_reels,
+                *self.audio_reels,
+            ],
         )
+
+    def map_medium_to_uri(self, medium: str) -> str:
+        return "https://data.hetarchief.be/id/carrier-type/" + medium
+
+    def audio_reel(self, audio_reel: film.AudioReel) -> sippy.AudioReel:
+        raise NotImplementedError()
+
+    def physical_carrier(
+        self, physical_carrier: film.ImageReel | film.AudioReel
+    ) -> sippy.PhysicalCarrier:
+        raise NotImplementedError()
+
+    def image_reel(self, image_reel: film.ImageReel) -> sippy.ImageReel:
+        return sippy.ImageReel(
+            file_path=None,
+            storage_medium=sippy.StorageMedium(
+                id=self.map_medium_to_uri(image_reel.medium)
+            ),
+            description=None,
+            width=None,
+            height=None,
+            depth=None,
+            material=image_reel.material,
+            material_extent=None,
+            identifier=image_reel.identifier,
+            preservation_problem=[
+                sippy.Concept(
+                    id=sippy.uuid4(),
+                    pref_label=sippy.LangStr.codes(nl=p),
+                )
+                for p in image_reel.preservation_problems
+            ],
+            coloring_type=[self.coloring_type(c) for c in image_reel.coloring_type],
+            has_captioning=self.has_captioning(image_reel.has_captioning),
+            aspect_ratio=image_reel.aspect_ratio,
+        )
+
+    @property
+    def image_reels(self) -> list[sippy.ImageReel]:
+        image_reels = chain.from_iterable(
+            stored_at.image_reels
+            for stored_at in self.carrier_significant_properties.stored_at
+        )
+        return [self.image_reel(reel) for reel in image_reels]
+
+    @property
+    def audio_reels(self) -> list[sippy.AudioReel]:
+        audio_reels = chain.from_iterable(
+            stored_at.audio_reels
+            for stored_at in self.carrier_significant_properties.stored_at
+        )
+        return [self.audio_reel(reel) for reel in audio_reels]
+
+    def has_captioning(
+        self, has_captioning: film.HasCaptioning | None
+    ) -> list[sippy.OpenCaptions]:
+        if has_captioning is None:
+            return []
+        return [self.open_captions(c) for c in has_captioning.open_captions]
+
+    def open_captions(self, open_captions: film.OpenCaptions) -> sippy.OpenCaptions:
+        return sippy.OpenCaptions(
+            in_language=[lang.text for lang in open_captions.in_languages]
+        )
+
+    def coloring_type(
+        self, coloring_type: film.ColoringType
+    ) -> sippy.URIRef[sippy.ColoringType]:
+        text = coloring_type.text
+        iri = "https://data.hetarchief.be/id/color-type/" + text
+        if iri not in sippy.ColoringType:
+            raise ValueError()
+        return sippy.URIRef(id=sippy.ColoringType(iri))
+
+    @property
+    def premis_carrier(self) -> premis.Representation:
+        return self.package_level.premis_info.representation
+
+    @cached_property
+    def carrier_significant_properties(self) -> film.CarrierSignificantProperties:
+        significant_properties = next(iter(self.premis_carrier.significant_properties))
+        extension = next(iter(significant_properties.extension))
+        return film.CarrierSignificantProperties.from_xml_tree(extension)
+
+    @property
+    def reference_to_entity(self) -> sippy.Reference:
+        relationship_to_entity = next(
+            rel
+            for rel in self.premis_carrier.relationships
+            if self.is_carrier_relationship(rel)
+        )
+        return sippy.Reference(id=relationship_to_entity.related_object_uuid)
 
 
 class EventParser:

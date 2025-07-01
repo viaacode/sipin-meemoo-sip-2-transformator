@@ -5,7 +5,6 @@ from itertools import chain
 from pydantic.dataclasses import dataclass
 
 import sippy
-from sippy.objects import ColoringType
 from ..models import premis
 
 from .premis_utils import AgentMap, ObjectMap, TemporaryObject

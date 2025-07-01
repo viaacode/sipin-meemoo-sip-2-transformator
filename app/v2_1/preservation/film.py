@@ -156,7 +156,9 @@ class CarrierSignificantProperties(BaseModel):
         missing_image = Parser.optional_element(element, "hasip:hasMissingImageReels")
 
         return cls(
-            number_of_reels=(NumberOfReels.from_xml_tree(n_reels) if n_reels else None),
+            number_of_reels=(
+                NumberOfReels.from_xml_tree(n_reels) if n_reels is not None else None
+            ),
             has_missing_audio_reels=(
                 HasMissingAudioReels.from_xml_tree(missing_audio)
                 if missing_audio

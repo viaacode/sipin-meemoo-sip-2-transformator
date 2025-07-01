@@ -2,6 +2,8 @@ from functools import partial
 
 import sippy
 
+from ..structural.mets import OtherContentInformationType
+
 from ..models import mets
 from ..utils import ParseException
 
@@ -17,11 +19,11 @@ def parse_descriptive(mets_info: mets.METS) -> partial[sippy.IntellectualEntity]
         )
 
     match mets_info.other_content_information_type:
-        case "https://data.hetarchief.be/id/sip/2.1/bibliographic":
+        case OtherContentInformationType.BIBLIOGRAPHIC:
             return parse_mods(mets_info.descriptive_metadata)
         case (
-            "https://data.hetarchief.be/id/sip/2.1/basic"
-            | "https://data.hetarchief.be/id/sip/2.1/material-artwork"
-            | "https://data.hetarchief.be/id/sip/2.1/film"
+            OtherContentInformationType.BASIC
+            | OtherContentInformationType.MATERIAL_ARTWORK
+            | OtherContentInformationType.FILM
         ):
             return parse_dc_schema(mets_info.descriptive_metadata)

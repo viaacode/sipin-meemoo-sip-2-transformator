@@ -1,6 +1,7 @@
 from pathlib import Path
 import typing
-from typing import cast, Literal
+from typing import cast
+from enum import StrEnum
 
 from lxml import etree
 from lxml.etree import _Element
@@ -15,14 +16,18 @@ from ..utils import (
     xpath_optional_text,
     xpath_text,
 )
+from ..version import SIP_VERSION
 
-# TODO: don't use the version of the SIP
-OtherContentInformationType = Literal[
-    "https://data.hetarchief.be/id/sip/2.1/basic",
-    "https://data.hetarchief.be/id/sip/2.1/bibliographic",
-    "https://data.hetarchief.be/id/sip/2.1/material-artwork",
-    "https://data.hetarchief.be/id/sip/2.1/film",
-]
+
+OtherContentInformationType = StrEnum(
+    "OtherContentInformationType",
+    names={
+        "BASIC": f"https://data.hetarchief.be/id/sip/{SIP_VERSION}/basic",
+        "BIBLIOGRAPHIC": f"https://data.hetarchief.be/id/sip/{SIP_VERSION}/bibliographic",
+        "MATERIAL_ARTWORK": f"https://data.hetarchief.be/id/sip/{SIP_VERSION}/material-artwork",
+        "FILM": f"https://data.hetarchief.be/id/sip/{SIP_VERSION}/film",
+    },
+)
 
 
 class METS(BaseModel):
@@ -85,15 +90,13 @@ def parse_mets(mets_path: Path) -> METS:
         mets_xml, "@csip:OTHERCONTENTINFORMATIONTYPE"
     )
 
-    if other_content_information_type not in (
-        "https://data.hetarchief.be/id/sip/2.1/basic",
-        "https://data.hetarchief.be/id/sip/2.1/bibliographic",
-        "https://data.hetarchief.be/id/sip/2.1/material-artwork",
-        "https://data.hetarchief.be/id/sip/2.1/film",
-    ):
+    if other_content_information_type not in [o for o in OtherContentInformationType]:
         raise ValueError(
             f"OTHERCONTENTINFORMATIONTYPE must be one of {typing.get_args(OtherContentInformationType)}"
         )
+    other_content_information_type = OtherContentInformationType(
+        other_content_information_type
+    )
 
     return METS(
         other_content_information_type=other_content_information_type,

@@ -85,6 +85,7 @@ class DC2Sippy:
 
     @property
     def created(self) -> sippy.EDTF:
+        # TODO: check all EDTF levels in transformator
         return sippy.EDTF_level1(value=self.dc_plus_schema.created)
 
     @property
@@ -284,24 +285,17 @@ class DC2Sippy:
     def creative_work(
         sip_creative_work: dcs.AnyCreativeWork | dcs.BroadcastEvent,
     ) -> sippy.AnyCreativeWork | sippy.BroadcastEvent:
+        name = DC2Sippy.lang_str(sip_creative_work.name)
         match sip_creative_work:
             case dcs.BroadcastEvent():
-                # TODO
+                # TODO: must first be added to datamodels properly
                 return sippy.BroadcastEvent()
             case dcs.Episode():
-                # TODO hardcoded identifier
-                return sippy.Episode(
-                    name=DC2Sippy.lang_str(sip_creative_work.name), identifier=""
-                )
+                # TODO: hardcoded identifier
+                return sippy.Episode(name=name, identifier="")
             case dcs.ArchiveComponent():
-                return sippy.ArchiveComponent(
-                    name=DC2Sippy.lang_str(sip_creative_work.name)
-                )
+                return sippy.ArchiveComponent(name=name)
             case dcs.CreativeWorkSeries():
-                return sippy.CreativeWorkSeries(
-                    name=DC2Sippy.lang_str(sip_creative_work.name)
-                )
+                return sippy.CreativeWorkSeries(name=name)
             case dcs.CreativeWorkSeason():
-                return sippy.CreativeWorkSeason(
-                    name=DC2Sippy.lang_str(sip_creative_work.name)
-                )
+                return sippy.CreativeWorkSeason(name=name)

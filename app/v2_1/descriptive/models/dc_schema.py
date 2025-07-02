@@ -96,8 +96,9 @@ CreativeWorkType = Literal[
     "schema:ArchiveComponent",
     "schema:CreativeWorkSeries",
     "schema:CreativeWorkSeason",
-    "schema:BroadcastEvent",
 ]
+
+EventTypes = Literal["schema:BroadcastEvent"]
 
 
 class Episode(BaseModel):
@@ -184,18 +185,11 @@ AnyCreativeWork = Episode | ArchiveComponent | CreativeWorkSeries | CreativeWork
 
 def parse_is_part_of(root: Element) -> AnyCreativeWork | BroadcastEvent:
     type = root.get("xsi:type")
-    # TODO: expand qname
-    # TODO: should this use get_args?
-    if type not in (
-        "schema:Episode",
-        "schema:ArchiveComponent",
-        "schema:CreativeWorkSeries",
-        "schema:CreativeWorkSeason",
-        "schema:BroadcastEvent",
-    ):
-        raise ParseException(
-            f"schema:isPartOf must be one of {typing.get_args(CreativeWorkType)}"
-        )
+    # TODO: In a perfect world the xsi:type would first be expanded into its full IRI
+    # it should then be prefixed back using the `schema` prefix.
+    valid_types = typing.get_args(CreativeWorkType) + typing.get_args(EventTypes)
+    if type not in valid_types:
+        raise ParseException(f"schema:isPartOf must be one of {valid_types}")
 
     match type:
         case "schema:Episode":
@@ -208,6 +202,8 @@ def parse_is_part_of(root: Element) -> AnyCreativeWork | BroadcastEvent:
             return CreativeWorkSeason.from_xml_tree(root)
         case "schema:BroadcastEvent":
             return BroadcastEvent.from_xml_tree(root)
+        case _:
+            raise AssertionError("CreativeWorkType or EventTypes are not complete")
 
 
 xsd_duration = str

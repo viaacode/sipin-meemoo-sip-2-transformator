@@ -11,7 +11,6 @@ from .mods import parse_mods
 from .dc_schema import parse_dc_schema
 
 
-# TODO: make this generic so that id does not use the version of the SIP
 def parse_descriptive(mets_info: mets.METS) -> partial[sippy.IntellectualEntity]:
     if mets_info.descriptive_metadata is None:
         raise ParseException(

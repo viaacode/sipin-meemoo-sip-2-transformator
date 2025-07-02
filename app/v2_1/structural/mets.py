@@ -57,11 +57,6 @@ class METS(BaseModel):
             pref_label=sippy.LangStr.codes(nl=archivist[0].name),
         )
 
-    @property
-    def entity_type(self) -> sippy.EntityClass:
-        # TODO: this should come from the descriptive metadata
-        return sippy.EntityClass.entity
-
 
 def parse_mets(mets_path: Path) -> METS:
     root = mets_path.parent

@@ -234,6 +234,7 @@ class DCPlusSchema(BaseModel):
     license: list[str]
     rights_holder: XMLLang | None
     rights: XMLLang | None
+    type: str
     format: str
     height: Height | None
     width: Width | None
@@ -282,6 +283,7 @@ class DCPlusSchema(BaseModel):
             license=Parser.text_list(root, "dcterms:license"),
             rights_holder=XMLLang.optional(root, "dcterms:rightsHolder"),
             rights=XMLLang.optional(root, "dcterms:rights"),
+            type=Parser.text(root, "dcterms:type"),
             format=Parser.text(root, "dcterms:format"),
             creator=[Creator.from_xml_tree(el) for el in creators],
             publisher=[Publisher.from_xml_tree(el) for el in publishers],

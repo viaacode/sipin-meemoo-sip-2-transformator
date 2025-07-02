@@ -3,6 +3,8 @@ from functools import partial
 
 import sippy
 
+from app.v2_1.utils import ParseException
+
 from .models import dc_schema as dcs
 from .models.xml_lang import XMLLang
 
@@ -31,6 +33,7 @@ def parse_dc_schema(path: Path) -> partial[sippy.IntellectualEntity]:
         license=sippify.license,
         copyright_holder=sippify.copyright_holder,
         rights=sippify.rights,
+        type=sippify.type,
         format=sippify.format,
         height=sippify.height,
         width=sippify.width,
@@ -136,6 +139,17 @@ class DC2Sippy:
         if self.dc_plus_schema.rights is None:
             return []
         return [DC2Sippy.lang_str(self.dc_plus_schema.rights)]
+
+    @property
+    def type(self) -> sippy.EntityClass:
+        type = self.dc_plus_schema.type
+        type_iri = "haDes:" + type
+        entity_classes = [c.value for c in sippy.EntityClass]
+        if type_iri not in entity_classes:
+            raise ParseException(
+                f"dcterms:type must be the local part of one of {entity_classes}"
+            )
+        return sippy.EntityClass(type_iri)
 
     @property
     def format(self) -> sippy.String:

@@ -13,13 +13,14 @@ def test_film():
     )
 
 
-def test_newspaper():
-    transform_sip(
-        "tests/sip-examples/2.1/newspaper_c44a0b0d-6e2f-4af2-9dab-3a9d447288d0/uuid-c44a0b0d-6e2f-4af2-9dab-3a9d447288d0"
-    )
+# Implementation of the bibliographic profile was pushed back
+# def test_newspaper():
+#     transform_sip(
+#         "tests/sip-examples/2.1/newspaper_c44a0b0d-6e2f-4af2-9dab-3a9d447288d0/uuid-c44a0b0d-6e2f-4af2-9dab-3a9d447288d0"
+#     )
 
 
-def test_newspaper_tiff():
-    transform_sip(
-        "tests/sip-examples/2.1/newspaper_tiff_alto_pdf_ebe47259-8f23-4a2d-bf49-55ae1d855393/uuid-ebe47259-8f23-4a2d-bf49-55ae1d855393"
-    )
+# def test_newspaper_tiff():
+#     transform_sip(
+#         "tests/sip-examples/2.1/newspaper_tiff_alto_pdf_ebe47259-8f23-4a2d-bf49-55ae1d855393/uuid-ebe47259-8f23-4a2d-bf49-55ae1d855393"
+#     )

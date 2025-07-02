@@ -49,7 +49,6 @@ def parse_sip(path: str | Path) -> sippy.SIP:
     ie_descriptive = parse_descriptive(package_mets)
 
     ie = sippy.IntellectualEntity(
-        type=package_mets.entity_type,
         maintainer=package_mets.content_partner,
         **ie_structural.keywords,
         **ie_descriptive.keywords,

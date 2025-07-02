@@ -6,53 +6,13 @@ from pydantic import BaseModel
 from ..utils import Parser
 
 
-class NumberOfReels(BaseModel):
-    value: int
-
-    @classmethod
-    def from_xml_tree(cls, element: Element) -> Self:
-        if element.text is None:
-            raise ValueError()
-        return cls(value=int(element.text))
-
-
-class HasMissingAudioReels(BaseModel):
-    value: bool
-
-    @classmethod
-    def from_xml_tree(cls, element: Element) -> Self:
-        if element.text not in ("true", "false", "0", "1"):
-            raise ValueError()
-        return cls(value=element.text in ("true", "1"))
-
-
-class HasMissingImageReels(BaseModel):
-    value: bool
-
-    @classmethod
-    def from_xml_tree(cls, element: Element) -> Self:
-        if element.text not in ("true", "false", "0", "1"):
-            raise ValueError()
-        return cls(value=element.text in ("true", "1"))
-
-
-class InLanguage(BaseModel):
-    text: str
-
-    @classmethod
-    def from_xml_tree(cls, element: Element) -> Self:
-        if element.text is None:
-            raise ValueError()
-        return cls(text=element.text)
-
-
 class OpenCaptions(BaseModel):
-    in_languages: list[InLanguage]
+    in_languages: list[str]
 
     @classmethod
     def from_xml_tree(cls, element: Element) -> Self:
-        langs = Parser.element_list(element, "hasip:inLanguage")
-        return cls(in_languages=[InLanguage.from_xml_tree(el) for el in langs])
+        langs = Parser.text_list(element, "hasip:inLanguage")
+        return cls(in_languages=langs)
 
 
 class HasCaptioning(BaseModel):
@@ -64,16 +24,6 @@ class HasCaptioning(BaseModel):
         return cls(open_captions=[OpenCaptions.from_xml_tree(el) for el in captions])
 
 
-class ColoringType(BaseModel):
-    text: str
-
-    @classmethod
-    def from_xml_tree(cls, element: Element) -> Self:
-        if element.text is None:
-            raise ValueError()
-        return cls(text=element.text)
-
-
 class ImageReel(BaseModel):
     identifier: str
     medium: str
@@ -82,7 +32,7 @@ class ImageReel(BaseModel):
     preservation_problems: list[str]
     stock_type: str | None
 
-    coloring_type: list[ColoringType]
+    coloring_type: list[str]
     has_captioning: HasCaptioning | None
 
     @classmethod
@@ -96,13 +46,16 @@ class ImageReel(BaseModel):
                 element, "hasip:preservationProblems"
             ),
             stock_type=Parser.optional_text(element, "hasip:stockType"),
-            coloring_type=[
-                ColoringType.from_xml_tree(coloring_type)
-                for coloring_type in Parser.element_list(element, "hasip:coloringType")
-            ],
-            has_captioning=HasCaptioning.from_xml_tree(captioning)
-            if (captioning := Parser.optional_element(element, "hasip:hasCaptioning"))
-            else None,
+            coloring_type=Parser.text_list(element, "hasip:coloringType"),
+            has_captioning=(
+                HasCaptioning.from_xml_tree(captioning)
+                if (
+                    captioning := Parser.optional_element(
+                        element, "hasip:hasCaptioning"
+                    )
+                )
+                else None
+            ),
         )
 
 
@@ -144,30 +97,24 @@ class StoredAt(BaseModel):
 
 
 class CarrierSignificantProperties(BaseModel):
-    number_of_reels: NumberOfReels | None
-    has_missing_audio_reels: HasMissingAudioReels | None
-    has_missing_image_reels: HasMissingImageReels | None
+    number_of_reels: int | None
+    has_missing_audio_reels: bool | None
+    has_missing_image_reels: bool | None
     stored_at: list[StoredAt]
 
     @classmethod
     def from_xml_tree(cls, element: Element) -> Self:
-        n_reels = Parser.optional_element(element, "hasip:numberOfReels")
-        missing_audio = Parser.optional_element(element, "hasip:hasMissingAudioReels")
-        missing_image = Parser.optional_element(element, "hasip:hasMissingImageReels")
+        n_reels = Parser.optional_text(element, "hasip:numberOfReels")
+        missing_audio = Parser.optional_text(element, "hasip:hasMissingAudioReels")
+        missing_image = Parser.optional_text(element, "hasip:hasMissingImageReels")
 
         return cls(
-            number_of_reels=(
-                NumberOfReels.from_xml_tree(n_reels) if n_reels is not None else None
-            ),
+            number_of_reels=int(n_reels) if n_reels is not None else None,
             has_missing_audio_reels=(
-                HasMissingAudioReels.from_xml_tree(missing_audio)
-                if missing_audio
-                else None
+                bool(missing_audio) if missing_audio is not None else None
             ),
             has_missing_image_reels=(
-                HasMissingImageReels.from_xml_tree(missing_image)
-                if missing_image
-                else None
+                bool(missing_image) if missing_image is not None else None
             ),
             stored_at=[
                 StoredAt.from_xml_tree(stored_at)

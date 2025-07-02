@@ -219,16 +219,17 @@ class RepresentationLevelParser:
             name=sippy.LangStr(nl="File"),
             original_name=original_name,
             fixity=sippy.Fixity(
-                # TODO: creator
                 id=sippy.uuid4(),
                 type=map_fixity_digest_algorithm_to_uri(
                     fixity.message_digest_algorithm.text
                 ),
                 value=fixity.message_digest.text,
+                creator=[],
             ),
             format=sippy.FileFormat(id=map_file_format_to_uri(format)),
             stored_at=sippy.StorageLocation(
-                file_path=str(relative_path.joinpath("data").joinpath(original_name))
+                storage_medium=[],
+                file_path=str(relative_path.joinpath("data").joinpath(original_name)),
             ),
         )
 
@@ -249,39 +250,58 @@ class CarrierRepresentationParser:
                 *self.image_reels,
                 *self.audio_reels,
             ],
+            has_missing_audio_reels=self.carrier_significant_properties.has_missing_audio_reels,
+            has_missing_image_reels=self.carrier_significant_properties.has_missing_image_reels,
+            number_of_reels=self.number_of_reels,
+            number_of_missing_audio_reels=None,
+            number_of_missing_image_reels=None,
+            number_of_audio_tracks=None,
+            number_of_audio_channels=None,
+            name=sippy.LangStr.codes(
+                nl=f"Carrier representation of {self.reference_to_entity.id}"
+            ),
         )
+
+    @property
+    def number_of_reels(self) -> sippy.NonNegativeInt | None:
+        n_reels = self.carrier_significant_properties.number_of_reels
+        return sippy.NonNegativeInt(value=n_reels) if n_reels is not None else None
 
     def map_medium_to_uri(self, medium: str) -> str:
         return "https://data.hetarchief.be/id/carrier-type/" + medium
 
     def audio_reel(self, audio_reel: film.AudioReel) -> sippy.AudioReel:
-        raise NotImplementedError()
+        return sippy.AudioReel(**self.physical_carrier(audio_reel).keywords)
 
     def physical_carrier(
         self, physical_carrier: film.ImageReel | film.AudioReel
-    ) -> sippy.PhysicalCarrier:
-        raise NotImplementedError()
-
-    def image_reel(self, image_reel: film.ImageReel) -> sippy.ImageReel:
-        return sippy.ImageReel(
-            file_path=None,
+    ) -> partial[sippy.PhysicalCarrier]:
+        return partial(
+            sippy.PhysicalCarrier,
             storage_medium=sippy.StorageMedium(
-                id=self.map_medium_to_uri(image_reel.medium)
+                id=self.map_medium_to_uri(physical_carrier.medium)
             ),
             description=None,
             width=None,
             height=None,
             depth=None,
-            material=image_reel.material,
+            material=physical_carrier.material,
             material_extent=None,
-            identifier=image_reel.identifier,
+            identifier=physical_carrier.identifier,
             preservation_problem=[
                 sippy.Concept(
                     id=sippy.uuid4(),
                     pref_label=sippy.LangStr.codes(nl=p),
                 )
-                for p in image_reel.preservation_problems
+                for p in physical_carrier.preservation_problems
             ],
+        )
+
+    def image_reel(self, image_reel: film.ImageReel) -> sippy.ImageReel:
+        return sippy.ImageReel(
+            **self.physical_carrier(image_reel).keywords,
+            file_path=None,
+            name=sippy.LangStr.codes(nl=f"Image Reel {image_reel.medium}"),
             coloring_type=[self.coloring_type(c) for c in image_reel.coloring_type],
             has_captioning=self.has_captioning(image_reel.has_captioning),
             aspect_ratio=image_reel.aspect_ratio,
@@ -311,17 +331,15 @@ class CarrierRepresentationParser:
         return [self.open_captions(c) for c in has_captioning.open_captions]
 
     def open_captions(self, open_captions: film.OpenCaptions) -> sippy.OpenCaptions:
-        return sippy.OpenCaptions(
-            in_language=[lang.text for lang in open_captions.in_languages]
-        )
+        return sippy.OpenCaptions(in_language=open_captions.in_languages)
 
-    def coloring_type(
-        self, coloring_type: film.ColoringType
-    ) -> sippy.URIRef[sippy.ColoringType]:
-        text = coloring_type.text
-        iri = "https://data.hetarchief.be/id/color-type/" + text
-        if iri not in sippy.ColoringType:
-            raise ValueError()
+    def coloring_type(self, coloring_type: str) -> sippy.URIRef[sippy.ColoringType]:
+        iri = "https://data.hetarchief.be/id/color-type/" + coloring_type
+        coloring_types = [c for c in sippy.ColoringType]
+        if iri not in coloring_types:
+            raise ParseException(
+                f"Unkown coloring type {coloring_type}. Coloring type must be one of {coloring_types}"
+            )
         return sippy.URIRef(id=sippy.ColoringType(iri))
 
     @property
@@ -366,6 +384,7 @@ class EventParser:
             source=self.source(event),
             result=self.result(event),
             instrument=self.instrument(event),
+            event_detail_extension={},
         )
 
     def object_is_result(self, link: premis.LinkingObjectIdentifier) -> bool:
@@ -461,7 +480,8 @@ class EventParser:
         implementer_agent = next(agents)
         return sippy.Organization(
             identifier=implementer_agent.primary_identifier.value.text,
-            pref_label=sippy.LangStr(nl=implementer_agent.name.text),
+            pref_label=sippy.LangStr.codes(nl=implementer_agent.name.text),
+            name=sippy.LangStr.codes(nl=implementer_agent.name.text),
         )
 
     def agent_is_executer(self, link: premis.LinkingAgentIdentifier) -> bool:

@@ -11,7 +11,7 @@ from .descriptive import parse_descriptive
 from .preservation.premis import PreservationParser
 
 
-sippy.utils.Config.SET_FIELDS_EXPLICIT = False
+sippy.utils.Config.SET_FIELDS_EXPLICIT = True
 
 
 @dataclass

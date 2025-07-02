@@ -52,9 +52,12 @@ class METS(BaseModel):
         note = archivist[0].note
         if not isinstance(note, sippy.EARKNote):
             raise ParseException("Archivist note must be an e-ark note")
+
+        archivist_name = archivist[0].name
         return sippy.ContentPartner(
             identifier=note.value,
-            pref_label=sippy.LangStr.codes(nl=archivist[0].name),
+            pref_label=sippy.LangStr.codes(nl=archivist_name),
+            name=sippy.LangStr.codes(nl=archivist_name),
         )
 
 

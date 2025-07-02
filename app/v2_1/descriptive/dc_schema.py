@@ -43,6 +43,15 @@ def parse_dc_schema(path: Path) -> partial[sippy.IntellectualEntity]:
         artform=sippify.artform,
         schema_is_part_of=sippify.schema_is_part_of,
         credit_text=sippify.credit_text,
+        # Other
+        has_part=[],
+        is_part_of=[],
+        relationship=[],
+        genre=[],
+        # Bibliographic descriptive metadata
+        number_of_pages=None,
+        page_number=None,
+        issue_number=None,
     )
 
 
@@ -245,6 +254,7 @@ class DC2Sippy:
             creator=member if isinstance(role, dcs.Creator) else None,
             publisher=member if isinstance(role, dcs.Publisher) else None,
             contributor=member if isinstance(role, dcs.Contributor) else None,
+            name=sippy.LangStr.codes(nl=role_name),
         )
 
     @staticmethod

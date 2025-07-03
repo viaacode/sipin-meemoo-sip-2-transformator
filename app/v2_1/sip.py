@@ -1,37 +1,63 @@
+from typing import Self, Any
 from pathlib import Path
 
-from sippy.sip import SIP, IntellectualEntity
-from sippy.utils import Config
+from pydantic.dataclasses import dataclass
 
+import sippy.utils
+import sippy
+
+from .level import Level
 from .descriptive import parse_descriptive
-from .mets import parse_mets
-from .preservation import PremisFiles
+from .preservation.premis import PreservationParser
 
 
-Config.SET_FIELDS_EXPLICIT = False
+sippy.utils.Config.SET_FIELDS_EXPLICIT = True
 
 
-def parse_sip(path: str | Path) -> SIP:
+@dataclass
+class SIP:
+    package: Level
+    representations: list[Level]
+
+    @classmethod
+    def parse(cls, sip_path: Path) -> Self:
+        package_level = Level.package(sip_path.joinpath("METS.xml"))
+        representation_levels = [
+            Level.representation(repr)
+            for repr in package_level.mets_info.representations
+        ]
+        return cls(
+            package=package_level,
+            representations=representation_levels,
+        )
+
+
+def transform_sip(path: str) -> dict[str, Any]:
+    sip = parse_sip(path)
+    return sip.serialize()
+
+
+def parse_sip(path: str | Path) -> sippy.SIP:
     """
     Parse a meemoo SIP given its root folder.
     """
 
-    mets_path = Path(path).joinpath("METS.xml")
-    package_mets = parse_mets(mets_path)
-    premis_files = PremisFiles(package_mets)
-    structural = premis_files.get_structural_info()
-    descriptive = parse_descriptive(package_mets)
+    sip = SIP.parse(Path(path))
+    preservation_parser = PreservationParser(sip.package, sip.representations)
+    package_mets = preservation_parser.package.mets_info
+    ie_structural = preservation_parser.intellectual_entity_info
+    ie_descriptive = parse_descriptive(package_mets)
 
-    ie = IntellectualEntity(
-        type=package_mets.entity_type,
+    ie = sippy.IntellectualEntity(
         maintainer=package_mets.content_partner,
-        **structural,
-        **descriptive,
+        **ie_structural.keywords,
+        **ie_descriptive.keywords,
     )
 
-    return SIP(
+    return sippy.SIP(
+        profile=sip.package.mets_info.other_content_information_type,
         entity=ie,
-        events=premis_files.parse_events(),
-        metsHdr=package_mets.metsHdr,
-        premis_agents=premis_files.parse_premis_agents(),
+        events=preservation_parser.events,
+        mets_agents=package_mets.agents,
+        premis_agents=preservation_parser.premis_agents,
     )

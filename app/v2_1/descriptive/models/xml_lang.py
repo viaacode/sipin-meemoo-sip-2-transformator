@@ -3,10 +3,10 @@ from xml.etree.ElementTree import Element
 
 from pydantic import BaseModel
 
-from ..utils import ParseException, ns
+from ...utils import ParseException, ns
 
 
-class LangStr(BaseModel):
+class XMLLang(BaseModel):
     content: dict[str, str]
 
     @classmethod

@@ -1,6 +1,7 @@
 from pathlib import Path
 import typing
-from typing import cast, Literal
+from typing import cast
+from enum import StrEnum
 
 from lxml import etree
 from lxml.etree import _Element
@@ -8,26 +9,30 @@ from pydantic import BaseModel
 
 import sippy
 
-from .utils import (
+from ..utils import (
     ParseException,
     xpath_element_list,
     xpath_text_list,
     xpath_optional_text,
     xpath_text,
 )
+from ..version import SIP_VERSION
 
-# TODO: don't use the version of the SIP
-OtherContentInformationType = Literal[
-    "https://data.hetarchief.be/id/sip/2.1/basic",
-    "https://data.hetarchief.be/id/sip/2.1/bibliographic",
-    "https://data.hetarchief.be/id/sip/2.1/material-artwork",
-    "https://data.hetarchief.be/id/sip/2.1/film",
-]
+
+OtherContentInformationType = StrEnum(
+    "OtherContentInformationType",
+    names={
+        "BASIC": f"https://data.hetarchief.be/id/sip/{SIP_VERSION}/basic",
+        "BIBLIOGRAPHIC": f"https://data.hetarchief.be/id/sip/{SIP_VERSION}/bibliographic",
+        "MATERIAL_ARTWORK": f"https://data.hetarchief.be/id/sip/{SIP_VERSION}/material-artwork",
+        "FILM": f"https://data.hetarchief.be/id/sip/{SIP_VERSION}/film",
+    },
+)
 
 
 class METS(BaseModel):
     other_content_information_type: OtherContentInformationType
-    metsHdr: sippy.METSHdr
+    agents: list[sippy.METSAgent]
     descriptive_metadata: Path | None
     administrative_metadata: Path | None
     representations: list[Path]
@@ -39,7 +44,7 @@ class METS(BaseModel):
         """
         archivist = [
             agent
-            for agent in self.metsHdr.agents
+            for agent in self.agents
             if agent.role == "ARCHIVIST" and agent.type == "ORGANIZATION"
         ]
         if len(archivist) != 1:
@@ -47,15 +52,13 @@ class METS(BaseModel):
         note = archivist[0].note
         if not isinstance(note, sippy.EARKNote):
             raise ParseException("Archivist note must be an e-ark note")
+
+        archivist_name = archivist[0].name
         return sippy.ContentPartner(
             identifier=note.value,
-            pref_label=sippy.LangStr.codes(nl=archivist[0].name),
+            pref_label=sippy.LangStr.codes(nl=archivist_name),
+            name=sippy.LangStr.codes(nl=archivist_name),
         )
-
-    @property
-    def entity_type(self) -> sippy.EntityClass:
-        # TODO: this should come from the descriptive metdata
-        return sippy.EntityClass.entity
 
 
 def parse_mets(mets_path: Path) -> METS:
@@ -85,19 +88,17 @@ def parse_mets(mets_path: Path) -> METS:
         mets_xml, "@csip:OTHERCONTENTINFORMATIONTYPE"
     )
 
-    if other_content_information_type not in (
-        "https://data.hetarchief.be/id/sip/2.1/basic",
-        "https://data.hetarchief.be/id/sip/2.1/bibliographic",
-        "https://data.hetarchief.be/id/sip/2.1/material-artwork",
-        "https://data.hetarchief.be/id/sip/2.1/film",
-    ):
+    if other_content_information_type not in [o for o in OtherContentInformationType]:
         raise ValueError(
             f"OTHERCONTENTINFORMATIONTYPE must be one of {typing.get_args(OtherContentInformationType)}"
         )
+    other_content_information_type = OtherContentInformationType(
+        other_content_information_type
+    )
 
     return METS(
         other_content_information_type=other_content_information_type,
-        metsHdr=sippy.METSHdr(agents=agents),
+        agents=agents,
         descriptive_metadata=(
             root.joinpath(dmd_href) if dmd_href is not None else dmd_href
         ),

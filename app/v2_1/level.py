@@ -10,7 +10,11 @@ from .utils import ParseException
 
 @dataclass
 class Level:
-    """Metadata of either the package level or the representation level."""
+    """
+    Represents all metadata information at a certain SIP structure level, eiher the package level or representaiton level.
+
+    The relative path is the path from the root of the SIP -- including the name of the SIP itself -- to the root of the level.
+    """
 
     relative_path: Path
     mets_info: mets.METS

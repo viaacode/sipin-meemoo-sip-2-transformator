@@ -17,7 +17,11 @@ from ..level import Level
 
 
 @dataclass
-class PreservationParser:
+class PreservationTransformer:
+    """
+    Transform premis SIP information into SIP.py objects (IntellectualEntity, DigitalRepresentation, Events, etc...)
+    """
+
     package: Level
     representations: list[Level]
 
@@ -83,7 +87,7 @@ class PreservationParser:
             _ = self.package.premis_info.representation
         except StopIteration:
             return None
-        parser = CarrierRepresentationParser(self.package)
+        parser = CarrierTransformer(self.package)
         return parser.parse_carrier_representation()
 
     def get_digital_representations(self) -> list[sippy.DigitalRepresentation]:
@@ -91,14 +95,14 @@ class PreservationParser:
         Extract the digital representation from the representation PREMIS files.
         """
         return [
-            RepresentationLevelParser(repr).parse_digital_representation()
+            DigitalTransformer(repr).parse_digital_representation()
             for repr in self.representations
         ]
 
     @property
     def events(self) -> list[sippy.Event]:
-        sippify = EventParser(self)
-        return [sippify.parse(event) for event in self.package.premis_info.events]
+        tf = EventTransformer(self)
+        return [tf.parse(event) for event in self.package.premis_info.events]
 
     @property
     def premis_agents(self) -> list[sippy.PremisAgent]:
@@ -150,7 +154,11 @@ def filter_digital_relationships_by_name(
 
 
 @dataclass
-class RepresentationLevelParser:
+class DigitalTransformer:
+    """
+    Transform a premis SIP representation into a SIP.py DigitalRepresentation
+    """
+
     representation_level: Level
 
     def is_digital_relationship(self, relationship: premis.Relationship) -> bool:
@@ -235,7 +243,11 @@ class RepresentationLevelParser:
 
 
 @dataclass
-class CarrierRepresentationParser:
+class CarrierTransformer:
+    """
+    Transform the carrier representation in the package premis file into a SIP.py CarrierRepresentation.
+    """
+
     package_level: Level
 
     def is_carrier_relationship(self, relationship: premis.Relationship) -> bool:
@@ -362,8 +374,14 @@ class CarrierRepresentationParser:
         return sippy.Reference(id=relationship_to_entity.related_object_uuid)
 
 
-class EventParser:
-    def __init__(self, structural: "PreservationParser") -> None:
+class EventTransformer:
+    """
+    Transform a premis SIP Event into a SIP.py Event
+    """
+
+    def __init__(self, structural: "PreservationTransformer") -> None:
+        # Events can referece agents and objects from anywhere in the SIP
+        # These map the refences to the actual agents and objects
         self.agent_map = AgentMap.create(structural)
         self.object_map = ObjectMap.create(structural)
 

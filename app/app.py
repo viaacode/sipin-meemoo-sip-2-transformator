@@ -62,13 +62,13 @@ class EventListener:
                 raise ValueError("Invalid SIP profile found in received message.")
 
     def produce_success_event(self, event: Event, data: dict[str, Any]):
-        subject = event.get_attributes()["subject"]
+        path = event.get_data()["sip_path"]
         produced_event = Event(
             attributes=EventAttributes(
                 datacontenttype="application/cloudevents+json; charset=utf-8",
                 correlation_id=event.correlation_id,
                 source=APP_NAME,
-                subject=subject,
+                subject=path,
                 outcome=EventOutcome.SUCCESS,
             ),
             data=data,

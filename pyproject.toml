@@ -5,12 +5,12 @@ description = "A service that transforms a meemoo SIP to a (Python) model."
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "viaa-chassis",
-    "pulsar-client",
-    "meemoo-cloudevents",
+    "viaa-chassis==0.2.1",
+    "pulsar-client==3.7.0",
+    "meemoo-cloudevents==0.1.0rc3",
     "lxml==5.4.0",
-    "sipin-eark-models==0.0.1",
-    "SIP.py==0.0.1",
+    "sipin-eark-models==0.0.3",
+    "SIP.py==0.0.2",
 ]
 classifiers = [
   "Development Status :: 3 - Alpha",

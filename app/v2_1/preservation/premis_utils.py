@@ -6,10 +6,14 @@ import eark_models.premis.v3_0 as premis
 
 
 if TYPE_CHECKING:
-    from .premis import PreservationParser
+    from .premis import PreservationTransformer
 
 
 class TemporaryObject(BaseModel):
+    """
+    Events can produce temporary objects that are immediatly consumed by an other event.
+    """
+
     id: premis.ObjectIdentifier
 
     @property
@@ -20,15 +24,23 @@ class TemporaryObject(BaseModel):
 
 
 class Identifier(BaseModel, frozen=True):
+    """
+    Identifier for either an Agent or Object
+    """
+
     type: str
     value: str
 
 
 class AgentMap(BaseModel):
+    """
+    Map from a reference to an Agent to the actual Agent
+    """
+
     map: dict[Identifier, premis.Agent]
 
     @classmethod
-    def create(cls, structural: "PreservationParser") -> Self:
+    def create(cls, structural: "PreservationTransformer") -> Self:
         all_agents: list[premis.Agent] = []
         all_agents.extend(structural.package.premis_info.agents)
         for repr in structural.representations:
@@ -48,10 +60,14 @@ class AgentMap(BaseModel):
 
 
 class ObjectMap(BaseModel):
+    """
+    Map from a reference to an Object to the actual Object or a TemporaryObject
+    """
+
     map: dict[Identifier, premis.Object]
 
     @classmethod
-    def create(cls, structural: "PreservationParser") -> Self:
+    def create(cls, structural: "PreservationTransformer") -> Self:
         all_objects: list[premis.Object] = []
         all_objects.extend(structural.package.premis_info.objects)
         for repr in structural.representations:

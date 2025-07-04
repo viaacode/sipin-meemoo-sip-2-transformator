@@ -170,6 +170,7 @@ class CreativeWorkSeason(BaseModel):
 class BroadcastEvent(BaseModel):
     type: Literal["schema:BroadcastEvent"]
     name: XMLLang
+    # TODO: add alternative name
 
     @classmethod
     def from_xml_tree(cls, root: Element) -> Self:

@@ -288,10 +288,10 @@ class DCSchemaTransformator:
         match sip_creative_work:
             case dcs.BroadcastEvent():
                 # TODO: must first be added to datamodels properly
-                return sippy.BroadcastEvent()
+                return sippy.BroadcastEvent(name=name)
             case dcs.Episode():
                 # TODO: hardcoded identifier
-                return sippy.Episode(name=name, identifier="")
+                return sippy.Episode(name=name)
             case dcs.ArchiveComponent():
                 return sippy.ArchiveComponent(name=name)
             case dcs.CreativeWorkSeries():

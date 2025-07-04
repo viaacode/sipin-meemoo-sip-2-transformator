@@ -56,8 +56,8 @@ class METS(BaseModel):
         archivist_name = archivist[0].name
         return sippy.ContentPartner(
             identifier=note.value,
-            pref_label=sippy.LangStr.codes(nl=archivist_name),
-            name=sippy.LangStr.codes(nl=archivist_name),
+            pref_label=sippy.UniqueLangStrings.codes(nl=archivist_name),
+            name=sippy.UniqueLangStrings.codes(nl=archivist_name),
         )
 
 

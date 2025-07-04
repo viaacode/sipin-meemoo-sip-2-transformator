@@ -1,12 +1,13 @@
 from pathlib import Path
 from functools import partial
 
+from pydantic.dataclasses import dataclass
+
 import sippy
 
 from app.v2_1.utils import ParseException
 
 from .models import dc_schema as dcs
-from .models.xml_lang import XMLLang
 
 
 def parse_dc_schema(path: Path) -> partial[sippy.IntellectualEntity]:
@@ -47,7 +48,7 @@ def parse_dc_schema(path: Path) -> partial[sippy.IntellectualEntity]:
         has_part=[],
         is_part_of=[],
         relationship=[],
-        genre=[],
+        genre=None,
         # Bibliographic descriptive metadata
         number_of_pages=None,
         page_number=None,
@@ -55,23 +56,23 @@ def parse_dc_schema(path: Path) -> partial[sippy.IntellectualEntity]:
     )
 
 
+@dataclass
 class DCSchemaTransformator:
     """
     Transforms the dc+schema model to SIP.py objects
     """
 
-    def __init__(self, dc_plus_schema: dcs.DCPlusSchema) -> None:
-        self.dc_plus_schema = dc_plus_schema
+    dc_plus_schema: dcs.DCPlusSchema
 
     @property
-    def title(self) -> sippy.LangStr:
-        return self.lang_str(self.dc_plus_schema.title)
+    def title(self) -> sippy.UniqueLangStrings:
+        return self.dc_plus_schema.title.to_unique_lang_strings()
 
     @property
-    def alternative(self) -> list[sippy.LangStr]:
+    def alternative(self) -> sippy.LangStrings | None:
         if self.dc_plus_schema.alternative is None:
-            return []
-        return [self.lang_str(self.dc_plus_schema.alternative)]
+            return None
+        return self.dc_plus_schema.alternative.to_lang_strings()
 
     @property
     def available(self) -> sippy.DateTime | None:
@@ -80,12 +81,14 @@ class DCSchemaTransformator:
         return sippy.DateTime(value=self.dc_plus_schema.available)
 
     @property
-    def description(self) -> sippy.LangStr | None:
-        return self.lang_str(self.dc_plus_schema.description)
+    def description(self) -> sippy.UniqueLangStrings | None:
+        return self.dc_plus_schema.description.to_unique_lang_strings()
 
     @property
-    def abstract(self) -> sippy.LangStr | None:
-        return self.optional_lang_str(self.dc_plus_schema.abstract)
+    def abstract(self) -> sippy.UniqueLangStrings | None:
+        if self.dc_plus_schema.abstract is None:
+            return None
+        return self.dc_plus_schema.abstract.to_unique_lang_strings()
 
     @property
     def created(self) -> sippy.EDTF:
@@ -113,18 +116,21 @@ class DCSchemaTransformator:
     @property
     def spatial(self) -> list[sippy.Place]:
         return [
-            sippy.Place(name=sippy.LangStr(nl=s)) for s in self.dc_plus_schema.spatial
+            sippy.Place(name=sippy.UniqueLangStrings.codes(nl=s))
+            for s in self.dc_plus_schema.spatial
         ]
 
     @property
-    def temporal(self) -> list[sippy.LangStr]:
-        return [sippy.LangStr(nl=t) for t in self.dc_plus_schema.temporal]
+    def temporal(self) -> sippy.LangStrings | None:
+        if self.dc_plus_schema.temporal is None:
+            return None
+        return self.dc_plus_schema.temporal.to_lang_strings()
 
     @property
-    def subject(self) -> list[sippy.LangStr]:
+    def subject(self) -> sippy.LangStrings | None:
         if self.dc_plus_schema.subject is None:
-            return []
-        return [self.lang_str(self.dc_plus_schema.subject)]
+            return None
+        return self.dc_plus_schema.subject.to_lang_strings()
 
     @property
     def in_language(self) -> list[str]:
@@ -135,7 +141,7 @@ class DCSchemaTransformator:
         return [
             sippy.Concept(
                 id="https://data.hetarchief.be/id/license/" + license,
-                pref_label=sippy.LangStr.codes(nl=license),
+                pref_label=sippy.UniqueLangStrings.codes(nl=license),
             )
             for license in self.dc_plus_schema.license
         ]
@@ -146,13 +152,15 @@ class DCSchemaTransformator:
     ) -> list[sippy.Thing | sippy.AnyOrganization | sippy.Person]:
         if self.dc_plus_schema.rights_holder is None:
             return []
-        return [sippy.Thing(name=self.lang_str(self.dc_plus_schema.rights_holder))]
+        return [
+            sippy.Thing(name=self.dc_plus_schema.rights_holder.to_unique_lang_strings())
+        ]
 
     @property
-    def rights(self) -> list[sippy.LangStr]:
+    def rights(self) -> sippy.LangStrings | None:
         if self.dc_plus_schema.rights is None:
-            return []
-        return [self.lang_str(self.dc_plus_schema.rights)]
+            return None
+        return self.dc_plus_schema.rights.to_lang_strings()
 
     @property
     def type(self) -> sippy.EntityClass:
@@ -186,24 +194,26 @@ class DCSchemaTransformator:
         return self.quantitive_value(self.dc_plus_schema.weight)
 
     @property
-    def art_medium(self) -> list[sippy.LangStr]:
+    def art_medium(self) -> sippy.LangStrings | None:
         if self.dc_plus_schema.art_medium is None:
-            return []
-        return [self.lang_str(self.dc_plus_schema.art_medium)]
+            return None
+        return self.dc_plus_schema.art_medium.to_lang_strings()
 
     @property
-    def artform(self) -> list[sippy.LangStr]:
+    def artform(self) -> sippy.LangStrings | None:
         if self.dc_plus_schema.artform is None:
-            return []
-        return [self.lang_str(self.dc_plus_schema.artform)]
+            return None
+        return self.dc_plus_schema.artform.to_lang_strings()
 
     @property
     def schema_is_part_of(self) -> list[sippy.AnyCreativeWork | sippy.BroadcastEvent]:
         return [self.creative_work(cw) for cw in self.dc_plus_schema.is_part_of]
 
     @property
-    def credit_text(self) -> list[sippy.LangStr]:
-        return [sippy.LangStr(nl=s) for s in self.dc_plus_schema.credit_text]
+    def credit_text(self) -> sippy.LangStrings | None:
+        if self.dc_plus_schema.credit_text is None:
+            return None
+        return self.dc_plus_schema.credit_text.to_lang_strings()
 
     @property
     def extent(self) -> sippy.Duration | None:
@@ -211,19 +221,11 @@ class DCSchemaTransformator:
             return None
         return sippy.Duration(value=self.dc_plus_schema.extent)
 
-    def optional_lang_str(self, str: XMLLang | None) -> sippy.LangStr | None:
-        if str is None:
-            return None
-        return sippy.LangStr.codes(**str.content)
-
-    def lang_str(self, str: XMLLang) -> sippy.LangStr:
-        return sippy.LangStr.codes(**str.content)
-
     def role(self, role: dcs.Creator | dcs.Publisher | dcs.Contributor) -> sippy.Role:
         is_person = role.birth_date or role.death_date
         if is_person:
             member = sippy.Person(
-                name=self.lang_str(role.name),
+                name=role.name.to_unique_lang_strings(),
                 birth_date=(
                     sippy.EDTF_level1(value=role.birth_date)
                     if role.birth_date
@@ -236,7 +238,7 @@ class DCSchemaTransformator:
                 ),
             )
         else:
-            member = sippy.Thing(name=self.lang_str(role.name))
+            member = sippy.Thing(name=role.name.to_unique_lang_strings())
 
         match role:
             case dcs.Contributor():
@@ -256,7 +258,7 @@ class DCSchemaTransformator:
             creator=member if isinstance(role, dcs.Creator) else None,
             publisher=member if isinstance(role, dcs.Publisher) else None,
             contributor=member if isinstance(role, dcs.Contributor) else None,
-            name=sippy.LangStr.codes(nl=role_name),
+            name=sippy.UniqueLangStrings.codes(nl=role_name),
         )
 
     def quantitive_value(
@@ -284,7 +286,7 @@ class DCSchemaTransformator:
     def creative_work(
         self, sip_creative_work: dcs.AnyCreativeWork | dcs.BroadcastEvent
     ) -> sippy.AnyCreativeWork | sippy.BroadcastEvent:
-        name = self.lang_str(sip_creative_work.name)
+        name = sip_creative_work.name.to_unique_lang_strings()
         match sip_creative_work:
             case dcs.BroadcastEvent():
                 # TODO: must first be added to datamodels properly

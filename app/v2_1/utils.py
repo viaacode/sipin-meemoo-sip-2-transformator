@@ -1,5 +1,5 @@
 from lxml.etree import _Element
-from sippy.utils import LangStr
+import sippy
 from xml.etree.ElementTree import Element
 
 
@@ -96,30 +96,6 @@ def xpath_text(element: _Element, path: str) -> str:
             f"Could not resolve '{path}' on {element} to a string. Did you forget 'text()'?"
         )
     return result[0]
-
-
-def xpath_optional_lang_str(element: _Element, path: str) -> LangStr | None:
-    elements = xpath_element_list(element, path)
-
-    if len(elements) == 0:
-        return None
-
-    kwargs = {}
-    for element in elements:
-        value = xpath_text(element, "text()")
-        lang = xpath_text(element, "@xml:lang")
-        kwargs |= {lang: value}
-
-    return LangStr.codes(**kwargs)
-
-
-def xpath_lang_str(element: _Element, path: str) -> LangStr:
-    langstr = xpath_optional_lang_str(element, path)
-    if langstr is None:
-        raise XPathException(
-            f"No lang string found on element {element} at path {path}"
-        )
-    return langstr
 
 
 class Parser:

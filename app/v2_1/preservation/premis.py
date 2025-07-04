@@ -199,7 +199,7 @@ class DigitalTransformer:
             id=premis_repr.uuid.value.text,
             represents=reference,
             includes=files,
-            name=sippy.LangStr(nl="Digital Representation"),
+            name=sippy.UniqueLangStrings.codes(nl="Digital Representation"),
             is_master_copy_of=is_master_copy_of,
             is_mezzanine_copy_of=is_mezzanine_copy_of,
             is_access_copy_of=is_access_copy_of,
@@ -224,7 +224,7 @@ class DigitalTransformer:
             id=file.uuid.value.text,
             is_included_in=[sippy.Reference(id=representation_identifier)],
             size=sippy.NonNegativeInt(value=size.value),
-            name=sippy.LangStr(nl="File"),
+            name=sippy.UniqueLangStrings.codes(nl="File"),
             original_name=original_name,
             fixity=sippy.Fixity(
                 id=sippy.uuid4(),
@@ -269,7 +269,7 @@ class CarrierTransformer:
             number_of_missing_image_reels=None,
             number_of_audio_tracks=None,
             number_of_audio_channels=None,
-            name=sippy.LangStr.codes(
+            name=sippy.UniqueLangStrings.codes(
                 nl=f"Carrier representation of {self.reference_to_entity.id}"
             ),
         )
@@ -303,7 +303,7 @@ class CarrierTransformer:
             preservation_problem=[
                 sippy.Concept(
                     id=sippy.uuid4(),
-                    pref_label=sippy.LangStr.codes(nl=p),
+                    pref_label=sippy.UniqueLangStrings.codes(nl=p),
                 )
                 for p in physical_carrier.preservation_problems
             ],
@@ -313,7 +313,7 @@ class CarrierTransformer:
         return sippy.ImageReel(
             **self.physical_carrier(image_reel).keywords,
             file_path=None,
-            name=sippy.LangStr.codes(nl=f"Image Reel {image_reel.medium}"),
+            name=sippy.UniqueLangStrings.codes(nl=f"Image Reel {image_reel.medium}"),
             coloring_type=[self.coloring_type(c) for c in image_reel.coloring_type],
             has_captioning=self.has_captioning(image_reel.has_captioning),
             aspect_ratio=image_reel.aspect_ratio,
@@ -498,8 +498,8 @@ class EventTransformer:
         implementer_agent = next(agents)
         return sippy.Organization(
             identifier=implementer_agent.primary_identifier.value.text,
-            pref_label=sippy.LangStr.codes(nl=implementer_agent.name.text),
-            name=sippy.LangStr.codes(nl=implementer_agent.name.text),
+            pref_label=sippy.UniqueLangStrings.codes(nl=implementer_agent.name.text),
+            name=sippy.UniqueLangStrings.codes(nl=implementer_agent.name.text),
         )
 
     def agent_is_executer(self, link: premis.LinkingAgentIdentifier) -> bool:
@@ -517,7 +517,7 @@ class EventTransformer:
 
         return sippy.SoftwareAgent(
             id=executer_agent.primary_identifier.value.text,
-            name=sippy.LangStr(nl=executer_agent.name.text),
+            name=sippy.UniqueLangStrings.codes(nl=executer_agent.name.text),
             model=None,
             serial_number=None,
             version=None,
@@ -534,7 +534,7 @@ class EventTransformer:
         ]
         return [
             sippy.HardwareAgent(
-                name=sippy.LangStr(nl=ag.name.text),
+                name=sippy.UniqueLangStrings.codes(nl=ag.name.text),
                 model=None,
                 serial_number=None,
                 version=None,
@@ -556,7 +556,7 @@ class EventTransformer:
         return [
             sippy.Person(
                 id=agent.uuid.value.text,
-                name=sippy.LangStr(nl=agent.name.text),
+                name=sippy.UniqueLangStrings.codes(nl=agent.name.text),
                 birth_date=None,
                 death_date=None,
             )

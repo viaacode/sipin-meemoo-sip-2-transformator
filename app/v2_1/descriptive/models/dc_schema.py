@@ -225,7 +225,7 @@ class DCPlusSchema(BaseModel):
     creator: list[Creator]
     contributor: list[Contributor]
     spatial: list[str]
-    temporal: list[str]
+    temporal: XMLLang | None
     subject: XMLLang | None
     language: list[str]
     license: list[str]
@@ -243,7 +243,7 @@ class DCPlusSchema(BaseModel):
 
     # film profile
     country_of_origin: str | None
-    credit_text: list[str]
+    credit_text: XMLLang | None
     genre: str | None
 
     @classmethod
@@ -274,7 +274,7 @@ class DCPlusSchema(BaseModel):
             created=Parser.text(root, "dcterms:created"),
             issued=Parser.optional_text(root, "dcterms:issued"),
             spatial=Parser.text_list(root, "dcterms:spatial"),
-            temporal=Parser.text_list(root, "dcterms:temporal"),
+            temporal=XMLLang.optional(root, "dcterms:temporal"),
             subject=XMLLang.optional(root, "dcterms:subject"),
             language=Parser.text_list(root, "dcterms:language"),
             license=Parser.text_list(root, "dcterms:license"),
@@ -293,6 +293,6 @@ class DCPlusSchema(BaseModel):
             artform=XMLLang.optional(root, "dcterms:artform"),
             is_part_of=is_part_of,
             country_of_origin=Parser.optional_text(root, "schema:countryOfOrigin"),
-            credit_text=Parser.text_list(root, "schema:creditText"),
+            credit_text=XMLLang.optional(root, "schema:creditText"),
             genre=Parser.optional_text(root, "schema:genre"),
         )

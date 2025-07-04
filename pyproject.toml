@@ -10,7 +10,7 @@ dependencies = [
     "meemoo-cloudevents==0.1.0rc3",
     "lxml==5.4.0",
     "sipin-eark-models==0.0.3",
-    "SIP.py==0.0.2",
+    "SIP.py==0.0.3",
 ]
 classifiers = [
   "Development Status :: 3 - Alpha",

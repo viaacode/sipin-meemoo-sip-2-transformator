@@ -42,7 +42,8 @@ class EventListener:
         subject = event.get_attributes()["subject"]
         self.log.info(f"Start handling of {subject}.")
         path = event.get_data()["sip_path"]
-        profile = event.get_data()["sip_profile"]
+        # TODO: Sip profile is not yet implemented in the event. For now use the hardcoded value below.
+        # profile = event.get_data()["sip_profile"]
 
         # TODO: remove hardcoded profile - only necessairy for demo
         profile = "https://data.hetarchief.be/id/sip/2.1/film"

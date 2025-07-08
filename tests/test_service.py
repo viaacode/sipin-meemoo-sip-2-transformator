@@ -107,7 +107,7 @@ def test_message(producer: pulsar.Producer, consumer: pulsar.Consumer):
 
     event_data = {
         "data": {
-            "outcome": "success",
+            "outcome": True,
             "sip_path": "tests/sip-examples/2.1/film_standard_mkv/uuid-2746e598-75cd-47b5-9a3e-8df18e98bb95",
             "sip_profile": "https://data.hetarchief.be/id/sip/2.1/film",
             "message": "Path '/opt/sipin/unzip/AWH12931330.bag.zip' is a valid bag",

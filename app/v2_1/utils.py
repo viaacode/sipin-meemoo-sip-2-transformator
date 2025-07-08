@@ -1,5 +1,4 @@
 from lxml.etree import _Element
-import sippy
 from xml.etree.ElementTree import Element
 
 

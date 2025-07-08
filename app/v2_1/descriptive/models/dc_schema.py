@@ -106,12 +106,8 @@ class Episode(BaseModel):
     name: XMLLang
 
     @classmethod
-    def from_xml_tree(cls, root: Element) -> Self:
-        type = root.get("xsi:type")
-        if type != "schema:Episode":
-            raise ParseException()
-
-        return cls(type=type, name=XMLLang.new(root, "schema:name"))
+    def from_xml_tree(cls, root: Element, xsi_type: Literal["schema:Episode"]) -> Self:
+        return cls(type=xsi_type, name=XMLLang.new(root, "schema:name"))
 
 
 class ArchiveComponent(BaseModel):
@@ -119,12 +115,10 @@ class ArchiveComponent(BaseModel):
     name: XMLLang
 
     @classmethod
-    def from_xml_tree(cls, root: Element) -> Self:
-        type = root.get("xsi:type")
-        if type != "schema:ArchiveComponent":
-            raise ParseException()
-
-        return cls(type=type, name=XMLLang.new(root, "schema:name"))
+    def from_xml_tree(
+        cls, root: Element, xsi_type: Literal["schema:ArchiveComponent"]
+    ) -> Self:
+        return cls(type=xsi_type, name=XMLLang.new(root, "schema:name"))
 
 
 class CreativeWorkSeries(BaseModel):
@@ -134,14 +128,12 @@ class CreativeWorkSeries(BaseModel):
     has_parts: list[str]
 
     @classmethod
-    def from_xml_tree(cls, root: Element) -> Self:
+    def from_xml_tree(
+        cls, root: Element, xsi_type: Literal["schema:CreativeWorkSeries"]
+    ) -> Self:
         position = Parser.optional_text(root, "schema:position")
-        type = root.get("xsi:type")
-        if type != "schema:CreativeWorkSeries":
-            raise ParseException()
-
         return cls(
-            type=type,
+            type=xsi_type,
             name=XMLLang.new(root, "schema:name"),
             position=int(position) if position else None,
             has_parts=Parser.text_list(root, "schema:hasPart/schema:name"),
@@ -154,14 +146,12 @@ class CreativeWorkSeason(BaseModel):
     season_number: int | None
 
     @classmethod
-    def from_xml_tree(cls, root: Element) -> Self:
+    def from_xml_tree(
+        cls, root: Element, xsi_type: Literal["schema:CreativeWorkSeason"]
+    ) -> Self:
         season_number = Parser.optional_text(root, "schema:seasonNumber")
-        type = root.get("xsi:type")
-        if type != "schema:CreativeWorkSeason":
-            raise ParseException()
-
         return cls(
-            type=type,
+            type=xsi_type,
             name=XMLLang.new(root, "schema:name"),
             season_number=int(season_number) if season_number else None,
         )
@@ -170,15 +160,12 @@ class CreativeWorkSeason(BaseModel):
 class BroadcastEvent(BaseModel):
     type: Literal["schema:BroadcastEvent"]
     name: XMLLang
-    # TODO: add alternative name
 
     @classmethod
-    def from_xml_tree(cls, root: Element) -> Self:
-        type = root.get("xsi:type")
-        if type != "schema:BroadcastEvent":
-            raise ParseException()
-
-        return cls(type=type, name=XMLLang.new(root, "schema:name"))
+    def from_xml_tree(
+        cls, root: Element, xsi_type: Literal["schema:BroadcastEvent"]
+    ) -> Self:
+        return cls(type=xsi_type, name=XMLLang.new(root, "schema:name"))
 
 
 AnyCreativeWork = Episode | ArchiveComponent | CreativeWorkSeries | CreativeWorkSeason
@@ -186,23 +173,22 @@ AnyCreativeWork = Episode | ArchiveComponent | CreativeWorkSeries | CreativeWork
 
 def parse_is_part_of(root: Element) -> AnyCreativeWork | BroadcastEvent:
     type = root.get("xsi:type")
-    # TODO: In a perfect world the xsi:type would first be expanded into its full IRI
-    # it should then be prefixed back using the `schema` prefix.
+
     valid_types = typing.get_args(CreativeWorkType) + typing.get_args(EventTypes)
     if type not in valid_types:
         raise ParseException(f"schema:isPartOf must be one of {valid_types}")
 
     match type:
         case "schema:Episode":
-            return Episode.from_xml_tree(root)
+            return Episode.from_xml_tree(root, type)
         case "schema:ArchiveComponent":
-            return ArchiveComponent.from_xml_tree(root)
+            return ArchiveComponent.from_xml_tree(root, type)
         case "schema:CreativeWorkSeries":
-            return CreativeWorkSeries.from_xml_tree(root)
+            return CreativeWorkSeries.from_xml_tree(root, type)
         case "schema:CreativeWorkSeason":
-            return CreativeWorkSeason.from_xml_tree(root)
+            return CreativeWorkSeason.from_xml_tree(root, type)
         case "schema:BroadcastEvent":
-            return BroadcastEvent.from_xml_tree(root)
+            return BroadcastEvent.from_xml_tree(root, type)
         case _:
             raise AssertionError("CreativeWorkType or EventTypes are not complete")
 

@@ -79,7 +79,7 @@ class EventListener:
             self.pulsar_client.pulsar_config["producer_topic"], produced_event
         )
 
-    def produce_fail_event(self, event: Event):
+    def produce_fail_event(self, event: Event, exception: Exception) -> None:
         subject = event.get_attributes()["subject"]
         produced_event = Event(
             attributes=EventAttributes(
@@ -89,7 +89,7 @@ class EventListener:
                 subject=subject,
                 outcome=EventOutcome.FAIL,
             ),
-            data={},
+            data={"message": str(exception)},
         )
 
         self.pulsar_client.produce_event(
@@ -114,7 +114,7 @@ class EventListener:
             except Exception as e:
                 # Catch and log any errors during message processing
                 self.log.error(f"Error: {e}")
-                self.pulsar_client.negative_acknowledge(msg)
-                self.produce_fail_event(event)
+                self.pulsar_client.acknowledge(msg)
+                self.produce_fail_event(event, e)
 
         self.pulsar_client.close()

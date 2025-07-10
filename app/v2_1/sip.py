@@ -37,12 +37,12 @@ def transform_sip(path: str) -> dict[str, Any]:
     return sip.serialize()
 
 
-def parse_sip(path: str | Path) -> sippy.SIP:
+def parse_sip(sip_path: str | Path) -> sippy.SIP:
     """
     Parse a meemoo SIP given its root folder.
     """
 
-    sip = SIP.parse(Path(path))
+    sip = SIP.parse(Path(sip_path))
     preservation_parser = PreservationParser(sip.package, sip.representations)
     package_mets = preservation_parser.package.mets_info
     ie_structural = preservation_parser.intellectual_entity_info

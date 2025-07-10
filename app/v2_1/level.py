@@ -26,15 +26,16 @@ class Level:
         )
 
     @classmethod
-    def package(cls, path: Path) -> Self:
-        package_level = cls.partial(path)
-        return package_level(relative_path=path.parent)
+    def package(cls, package_mets_path: Path) -> Self:
+        package_level = cls.partial(package_mets_path)
+        package_level_path = package_mets_path.parent
+        return package_level(relative_path=package_level_path)
 
     @classmethod
-    def representation(cls, path: Path) -> Self:
-        representation_level = cls.partial(path)
-        package_path = path.parent.parent
-        return representation_level(relative_path=package_path.parent)
+    def representation(cls, representation_mets_path: Path) -> Self:
+        representation_level = cls.partial(representation_mets_path)
+        representation_level_path = representation_mets_path.parent
+        return representation_level(relative_path=representation_level_path)
 
     @staticmethod
     def parse_premis(mets_model: mets.METS) -> premis.Premis:

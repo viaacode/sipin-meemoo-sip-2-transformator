@@ -9,7 +9,7 @@ class Namespace(metaclass=NamespaceMeta):
     pass
 
 
-class XSI(Namespace):
+class xsi(Namespace):
     __ns__ = "http://www.w3.org/2001/XMLSchema-instance"
 
 

@@ -3,7 +3,7 @@ from typing import Self, Literal, TextIO
 from xml.etree.ElementTree import Element
 import xml.etree.ElementTree as ET
 from pathlib import Path
-from ...namespaces import schema, dcterms, XSI
+from ...namespaces import schema, dcterms, xsi
 
 from pydantic import BaseModel
 
@@ -48,7 +48,7 @@ UnitText = Literal["mm", "cm", "m", "kg"]
 
 
 class _Measurement(BaseModel):
-    value: float
+    value: str
     unit_code: UnitCode | None
     unit_text: UnitText
 
@@ -71,7 +71,7 @@ class _Measurement(BaseModel):
             )
 
         return cls(
-            value=float(value),
+            value=value,
             unit_code=unit_code,
             unit_text=unit_text,
         )
@@ -159,7 +159,7 @@ AnyCreativeWork = Episode | ArchiveComponent | CreativeWorkSeries | CreativeWork
 
 
 def parse_is_part_of(root: Element) -> AnyCreativeWork | BroadcastEvent:
-    type = root.get(XSI.type)
+    type = root.get(xsi.type)
 
     valid_types = typing.get_args(CreativeWorkType) + typing.get_args(EventTypes)
     if type not in valid_types:
@@ -186,6 +186,7 @@ xsd_timedelta = str
 
 class DCPlusSchema(BaseModel):
     # basic profile
+    identifier: str
     title: XMLLang
     alternative: XMLLang | None
     extent: xsd_duration | None
@@ -221,10 +222,7 @@ class DCPlusSchema(BaseModel):
 
     @classmethod
     def from_xml(cls, path: str | Path) -> Self:
-        root = ET.parse(path).getroot()
-        document_namespaces = get_document_namespaces(path)
-        recursively_expand_attribute_values(root, document_namespaces)
-        return cls.from_xml_tree(root)
+        return cls.from_xml_tree(parse_xml(path))
 
     @classmethod
     def from_xml_tree(cls, root: Element) -> Self:
@@ -240,6 +238,7 @@ class DCPlusSchema(BaseModel):
         ]
 
         return cls(
+            identifier=Parser.text(root, dcterms.identifier),
             title=XMLLang.new(root, dcterms.title),
             alternative=XMLLang.optional(root, dcterms.alternative),
             extent=Parser.optional_text(root, dcterms.extent),
@@ -264,8 +263,8 @@ class DCPlusSchema(BaseModel):
             width=Width.from_xml_tree(root, schema.width),
             depth=Depth.from_xml_tree(root, schema.depth),
             weight=Weight.from_xml_tree(root, schema.weight),
-            art_medium=XMLLang.optional(root, dcterms.artMedium),
-            artform=XMLLang.optional(root, dcterms.artform),
+            art_medium=XMLLang.optional(root, schema.artMedium),
+            artform=XMLLang.optional(root, schema.artform),
             is_part_of=is_part_of,
             country_of_origin=Parser.optional_text(root, schema.countryOfOrigin),
             credit_text=XMLLang.optional(root, schema.creditText),
@@ -273,18 +272,38 @@ class DCPlusSchema(BaseModel):
         )
 
 
-def recursively_expand_attribute_values(
+def expand_attribute_qnames(
     element: Element, document_namespaces: dict[str, str]
-):
+) -> Element:
+    """
+    Certain attributes may have a prefixed value e.g. xsi:type="schema:Episode".
+    Expand the prefixed attribute value to its full qualified name e.g. "{https://schema.org/}Episode"
+    """
+
     for k, v in element.attrib.items():
-        if k == XSI.type:
+        if k == xsi.type:
             element.attrib[k] = expand_qname(v, document_namespaces)
 
     for child in element:
-        recursively_expand_attribute_values(child, document_namespaces)
+        _ = expand_attribute_qnames(child, document_namespaces)
+
+    return element
+
+
+def parse_xml(source: str | Path | TextIO):
+    document_namespaces = get_document_namespaces(source)
+    if not isinstance(source, (str, Path)):
+        source.seek(0)
+    root = ET.parse(source).getroot()
+    return expand_attribute_qnames(root, document_namespaces)
 
 
 def expand_qname(name: str, document_namespaces: dict[str, str]) -> str:
+    """
+    Expand a prefixed qualified name to its fully qualified name.
+    E.g. "schema:Episode" is expanded to "{https://schema.org/}Episode"
+    """
+
     if ":" not in name:
         return name
 
@@ -296,8 +315,8 @@ def expand_qname(name: str, document_namespaces: dict[str, str]) -> str:
     return "{" + prefix_iri + "}" + local
 
 
-def get_document_namespaces(path: str | Path | TextIO) -> dict[str, str]:
+def get_document_namespaces(source: str | Path | TextIO) -> dict[str, str]:
     document_namespaces = [
-        ns_tuple for _, ns_tuple in ET.iterparse(path, events=["start-ns"])
+        ns_tuple for _, ns_tuple in ET.iterparse(source, events=["start-ns"])
     ]
     return dict(typing.cast(list[tuple[str, str]], document_namespaces))

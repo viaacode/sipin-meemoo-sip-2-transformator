@@ -278,7 +278,7 @@ class DCSchemaTransformator:
                 unit_code = "KGM"
 
         return sippy.QuantitativeValue(
-            value=sippy.Float(value=measurement.value),
+            value=sippy.Float(value=float(measurement.value)),
             unit_text=measurement.unit_text,
             unit_code=unit_code,
         )
@@ -299,4 +299,7 @@ class DCSchemaTransformator:
             case dcs.CreativeWorkSeries():
                 return sippy.CreativeWorkSeries(name=name)
             case dcs.CreativeWorkSeason():
-                return sippy.CreativeWorkSeason(name=name)
+                return sippy.CreativeWorkSeason(
+                    name=name,
+                    season_number=sip_creative_work.season_number,
+                )

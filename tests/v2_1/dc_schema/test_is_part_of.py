@@ -93,3 +93,21 @@ def test_parsing_with_empty_xsi_type():
 
     with pytest.raises(ParseException):
         _ = parse_is_part_of(root)
+
+
+def test_has_parts_inside_is_part_of():
+    content = """<schema:isPartOf xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:schema="https://schema.org/"
+        xsi:type="schema:CreativeWorkSeries">
+      <schema:name xml:lang="en">my creative work series</schema:name>
+      <schema:hasPart>
+          <schema:name xml:lang="nl">has part</schema:name>
+      </schema:hasPart>
+      <schema:hasPart>
+          <schema:name xml:lang="nl">has part 2</schema:name>
+      </schema:hasPart>
+    </schema:isPartOf>
+    """
+
+    file = StringIO(content)
+    root = parse_xml(file)
+    _ = parse_is_part_of(root)

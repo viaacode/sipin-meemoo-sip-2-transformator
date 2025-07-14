@@ -108,7 +108,7 @@ class Episode(BaseModel):
 
     @classmethod
     def from_xml_tree(cls, root: Element) -> Self:
-        return cls(name=XMLLang.new(root, "schema:name"))
+        return cls(name=XMLLang.new(root, schema.name))
 
 
 class ArchiveComponent(BaseModel):
@@ -116,21 +116,22 @@ class ArchiveComponent(BaseModel):
 
     @classmethod
     def from_xml_tree(cls, root: Element) -> Self:
-        return cls(name=XMLLang.new(root, "schema:name"))
+        return cls(name=XMLLang.new(root, schema.name))
 
 
 class CreativeWorkSeries(BaseModel):
     name: XMLLang
     position: int | None
-    has_parts: list[str]
+    has_parts: list[XMLLang]
 
     @classmethod
     def from_xml_tree(cls, root: Element) -> Self:
-        position = Parser.optional_text(root, "schema:position")
+        position = Parser.optional_text(root, schema.position)
+        parts = Parser.element_list(root, schema.hasPart)
         return cls(
-            name=XMLLang.new(root, "schema:name"),
+            name=XMLLang.new(root, schema.name),
             position=int(position) if position else None,
-            has_parts=Parser.text_list(root, "schema:hasPart/schema:name"),
+            has_parts=[XMLLang.new(el, schema.name) for el in parts],
         )
 
 
@@ -140,9 +141,9 @@ class CreativeWorkSeason(BaseModel):
 
     @classmethod
     def from_xml_tree(cls, root: Element) -> Self:
-        season_number = Parser.optional_text(root, "schema:seasonNumber")
+        season_number = Parser.optional_text(root, schema.seasonNumber)
         return cls(
-            name=XMLLang.new(root, "schema:name"),
+            name=XMLLang.new(root, schema.name),
             season_number=int(season_number) if season_number else None,
         )
 
@@ -152,7 +153,7 @@ class BroadcastEvent(BaseModel):
 
     @classmethod
     def from_xml_tree(cls, root: Element) -> Self:
-        return cls(name=XMLLang.new(root, "schema:name"))
+        return cls(name=XMLLang.new(root, schema.name))
 
 
 AnyCreativeWork = Episode | ArchiveComponent | CreativeWorkSeries | CreativeWorkSeason

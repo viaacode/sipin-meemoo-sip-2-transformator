@@ -223,7 +223,7 @@ class DigitalTransformer:
         return sippy.File(
             id=file.uuid.value.text,
             is_included_in=[sippy.Reference(id=representation_identifier)],
-            size=sippy.NonNegativeInt(value=size.value),
+            size=sippy.NonNegativeInt(value=int(size.value)),
             name=sippy.UniqueLangStrings.codes(nl="File"),
             original_name=original_name,
             fixity=sippy.Fixity(

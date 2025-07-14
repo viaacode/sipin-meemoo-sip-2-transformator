@@ -1,9 +1,8 @@
-import xml.etree.ElementTree as ET
 from io import StringIO
 
 import pytest
 
-from app.v2_1.utils import ParseException, ns
+from app.v2_1.utils import ParseException
 from app.v2_1.descriptive.models import dc_schema, xml_lang
 from app.v2_1.descriptive.models.dc_schema import parse_is_part_of, parse_xml
 

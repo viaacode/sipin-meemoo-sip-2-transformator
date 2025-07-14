@@ -8,7 +8,7 @@ from ...namespaces import schema, dcterms, xsi
 from pydantic import BaseModel
 
 from .xml_lang import XMLLang
-from ...utils import ParseException, Parser, ns
+from ...utils import ParseException, Parser
 
 
 EDTF = str

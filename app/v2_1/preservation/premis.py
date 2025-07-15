@@ -162,6 +162,7 @@ class DigitalTransformer:
     representation_level: Level
 
     def is_digital_relationship(self, relationship: premis.Relationship) -> bool:
+        # TODO: represents also contains carrier representation
         return relationship.sub_type.text in sippy.Represents
 
     def parse_digital_representation(self) -> sippy.DigitalRepresentation:

@@ -281,6 +281,7 @@ class DCSchemaTransformator:
             value=sippy.Float(value=float(measurement.value)),
             unit_text=measurement.unit_text,
             unit_code=unit_code,
+            name=sippy.UniqueLangStrings.codes(nl="Quantitative Value"),
         )
 
     def creative_work(
@@ -297,7 +298,12 @@ class DCSchemaTransformator:
             case dcs.ArchiveComponent():
                 return sippy.ArchiveComponent(name=name)
             case dcs.CreativeWorkSeries():
-                return sippy.CreativeWorkSeries(name=name)
+                return sippy.CreativeWorkSeries(
+                    name=name,
+                    position=sip_creative_work.position,
+                    # TODO fix empty has_part
+                    has_part=[],
+                )
             case dcs.CreativeWorkSeason():
                 return sippy.CreativeWorkSeason(
                     name=name,

@@ -48,7 +48,7 @@ def parse_dc_schema(path: Path) -> partial[sippy.IntellectualEntity]:
         has_part=[],
         is_part_of=[],
         relationship=[],
-        genre=None,
+        genre=tf.genre,
         # Bibliographic descriptive metadata
         number_of_pages=None,
         page_number=None,
@@ -309,3 +309,9 @@ class DCSchemaTransformator:
                     name=name,
                     season_number=sip_creative_work.season_number,
                 )
+
+    @property
+    def genre(self) -> sippy.UniqueLangStrings | None:
+        if self.dc_plus_schema.genre is None:
+            return None
+        return sippy.UniqueLangStrings.codes(nl=self.dc_plus_schema.genre)

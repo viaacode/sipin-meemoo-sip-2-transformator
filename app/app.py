@@ -34,7 +34,7 @@ class EventListener:
             event (Event): The incoming event to process.
         """
         is_event_success = event.has_successful_outcome()
-        is_validation_success = event.get_data()["outcome"]
+        is_validation_success = event.get_data()["is_valid"]
         if not is_event_success or not is_validation_success:
             self.log.info(f"Dropping non successful event: {event.get_data()}")
             return
@@ -50,6 +50,7 @@ class EventListener:
 
         transformator_fn = self.get_sip_transformator(profile)
         data = transformator_fn(path)
+        data["is_valid"] = True
         self.produce_success_event(event, data)
 
     def get_sip_transformator(self, profile: str) -> Callable[[str], dict[str, Any]]:
@@ -79,7 +80,7 @@ class EventListener:
             self.pulsar_client.pulsar_config["producer_topic"], produced_event
         )
 
-    def produce_fail_event(self, event: Event):
+    def produce_fail_event(self, event: Event, exception: Exception) -> None:
         subject = event.get_attributes()["subject"]
         produced_event = Event(
             attributes=EventAttributes(
@@ -89,7 +90,10 @@ class EventListener:
                 subject=subject,
                 outcome=EventOutcome.FAIL,
             ),
-            data={},
+            data={
+                "message": str(exception),
+                "is_valid": False,  # type: ignore
+            },
         )
 
         self.pulsar_client.produce_event(
@@ -114,7 +118,7 @@ class EventListener:
             except Exception as e:
                 # Catch and log any errors during message processing
                 self.log.error(f"Error: {e}")
-                self.pulsar_client.negative_acknowledge(msg)
-                self.produce_fail_event(event)
+                self.pulsar_client.acknowledge(msg)
+                self.produce_fail_event(event, e)
 
         self.pulsar_client.close()

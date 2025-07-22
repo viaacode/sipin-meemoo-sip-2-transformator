@@ -8,7 +8,7 @@ import sippy
 
 from .level import Level
 from .descriptive import parse_descriptive
-from .preservation.premis import PreservationParser
+from .preservation.premis import PreservationTransformer
 
 
 sippy.utils.Config.SET_FIELDS_EXPLICIT = True
@@ -43,7 +43,7 @@ def parse_sip(sip_path: str | Path) -> sippy.SIP:
     """
 
     sip = SIP.parse(Path(sip_path))
-    preservation_parser = PreservationParser(sip.package, sip.representations)
+    preservation_parser = PreservationTransformer(sip.package, sip.representations)
     package_mets = preservation_parser.package.mets_info
     ie_structural = preservation_parser.intellectual_entity_info
     ie_descriptive = parse_descriptive(package_mets)

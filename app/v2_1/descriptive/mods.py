@@ -22,7 +22,7 @@ def parse_mods(path: Path) -> partial[sippy.IntellectualEntity]:
 
     return partial(
         sippy.IntellectualEntity,
-        name=sippy.LangStr(nl=main_title.text),
+        name=sippy.UniqueLangStrings.codes(nl=main_title.text),
         date_created=sippy.EDTF_level1(value=date_created.text),
         format=sippy.String(value="newspaper"),
     )

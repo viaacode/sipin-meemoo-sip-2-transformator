@@ -3,11 +3,18 @@ from xml.etree.ElementTree import Element
 
 from pydantic import BaseModel
 
+import sippy
+
 from ...utils import ParseException, ns
 
 
+class Entry(BaseModel):
+    lang: str
+    value: str
+
+
 class XMLLang(BaseModel):
-    content: dict[str, str]
+    entries: list[Entry]
 
     @classmethod
     def new(cls, root: Element, path: str) -> Self:
@@ -22,13 +29,27 @@ class XMLLang(BaseModel):
         if len(elements) == 0:
             return None
 
-        content = {}
+        entries = []
         for element in elements:
             value = element.text
+            if value is None:
+                value = ""
             lang = element.get("{http://www.w3.org/XML/1998/namespace}lang")
             if lang is None:
                 raise ParseException(
                     f"No `xml:lang` attribute found on lang string {path}."
                 )
-            content |= {lang: value}
-        return cls(content=content)
+            entries.append(Entry(lang=lang, value=value))
+        return cls(entries=entries)
+
+    def _to_lang_string(self) -> list[sippy.LangString]:
+        return [
+            sippy.LangString(lang=entry.lang, value=entry.value)
+            for entry in self.entries
+        ]
+
+    def to_lang_strings(self) -> sippy.LangStrings:
+        return sippy.LangStrings(root=self._to_lang_string())
+
+    def to_unique_lang_strings(self) -> sippy.UniqueLangStrings:
+        return sippy.UniqueLangStrings(root=self._to_lang_string())

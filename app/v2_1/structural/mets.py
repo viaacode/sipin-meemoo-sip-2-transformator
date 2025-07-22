@@ -56,8 +56,8 @@ class METS(BaseModel):
         archivist_name = archivist[0].name
         return sippy.ContentPartner(
             identifier=note.value,
-            pref_label=sippy.LangStr.codes(nl=archivist_name),
-            name=sippy.LangStr.codes(nl=archivist_name),
+            pref_label=sippy.UniqueLangStrings.codes(nl=archivist_name),
+            name=sippy.UniqueLangStrings.codes(nl=archivist_name),
         )
 
 
@@ -88,9 +88,10 @@ def parse_mets(mets_path: Path) -> METS:
         mets_xml, "@csip:OTHERCONTENTINFORMATIONTYPE"
     )
 
-    if other_content_information_type not in [o for o in OtherContentInformationType]:
+    allowed_contened_information_types = [o for o in OtherContentInformationType]
+    if other_content_information_type not in allowed_contened_information_types:
         raise ValueError(
-            f"OTHERCONTENTINFORMATIONTYPE must be one of {typing.get_args(OtherContentInformationType)}"
+            f"OTHERCONTENTINFORMATIONTYPE must be one of {allowed_contened_information_types}"
         )
     other_content_information_type = OtherContentInformationType(
         other_content_information_type

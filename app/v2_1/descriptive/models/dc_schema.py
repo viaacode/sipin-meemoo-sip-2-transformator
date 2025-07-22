@@ -1,8 +1,9 @@
 import typing
-from typing import Self, Literal
+from typing import Self, Literal, TextIO
 from xml.etree.ElementTree import Element
 import xml.etree.ElementTree as ET
 from pathlib import Path
+from ...namespaces import schema, dcterms, xsi
 
 from pydantic import BaseModel
 
@@ -22,10 +23,10 @@ class _Role(BaseModel):
     @classmethod
     def from_xml_tree(cls, root: Element) -> Self:
         return cls(
-            name=XMLLang.new(root, "schema:name"),
-            role_name=root.get("schema:roleName"),
-            birth_date=Parser.optional_text(root, "schema:birthDate"),
-            death_date=Parser.optional_text(root, "schema:deathDate"),
+            name=XMLLang.new(root, schema.name),
+            role_name=root.get(schema.roleName),
+            birth_date=Parser.optional_text(root, schema.birthDate),
+            death_date=Parser.optional_text(root, schema.deathDate),
         )
 
 
@@ -46,7 +47,7 @@ UnitText = Literal["mm", "cm", "m", "kg"]
 
 
 class _Measurement(BaseModel):
-    value: float
+    value: str
     unit_code: UnitCode | None
     unit_text: UnitText
 
@@ -55,9 +56,9 @@ class _Measurement(BaseModel):
         element = root.find(path)
         if element is None:
             return None
-        value = Parser.text(element, "schema:value")
-        unit_code = Parser.optional_text(element, "schema:unitCode")
-        unit_text = Parser.text(element, "schema:unitText")
+        value = Parser.text(element, schema.value)
+        unit_code = Parser.optional_text(element, schema.unitCode)
+        unit_text = Parser.text(element, schema.unitText)
 
         if unit_code is not None and unit_code not in ("MMT", "CMT", "MTR", "KGM"):
             raise ParseException(
@@ -69,7 +70,7 @@ class _Measurement(BaseModel):
             )
 
         return cls(
-            value=float(value),
+            value=value,
             unit_code=unit_code,
             unit_text=unit_text,
         )
@@ -92,115 +93,88 @@ class Weight(_Measurement):
 
 
 CreativeWorkType = Literal[
-    "schema:Episode",
-    "schema:ArchiveComponent",
-    "schema:CreativeWorkSeries",
-    "schema:CreativeWorkSeason",
+    schema.Episode,
+    schema.ArchiveComponent,
+    schema.CreativeWorkSeries,
+    schema.CreativeWorkSeason,
 ]
 
-EventTypes = Literal["schema:BroadcastEvent"]
+EventTypes = Literal[schema.BroadcastEvent]
 
 
 class Episode(BaseModel):
-    type: Literal["schema:Episode"]
     name: XMLLang
 
     @classmethod
     def from_xml_tree(cls, root: Element) -> Self:
-        type = root.get("xsi:type")
-        if type != "schema:Episode":
-            raise ParseException()
-
-        return cls(type=type, name=XMLLang.new(root, "schema:name"))
+        return cls(name=XMLLang.new(root, schema.name))
 
 
 class ArchiveComponent(BaseModel):
-    type: Literal["schema:ArchiveComponent"]
     name: XMLLang
 
     @classmethod
     def from_xml_tree(cls, root: Element) -> Self:
-        type = root.get("xsi:type")
-        if type != "schema:ArchiveComponent":
-            raise ParseException()
-
-        return cls(type=type, name=XMLLang.new(root, "schema:name"))
+        return cls(name=XMLLang.new(root, schema.name))
 
 
 class CreativeWorkSeries(BaseModel):
-    type: Literal["schema:CreativeWorkSeries"]
     name: XMLLang
     position: int | None
-    has_parts: list[str]
+    has_part: XMLLang
 
     @classmethod
     def from_xml_tree(cls, root: Element) -> Self:
-        position = Parser.optional_text(root, "schema:position")
-        type = root.get("xsi:type")
-        if type != "schema:CreativeWorkSeries":
-            raise ParseException()
-
+        position = Parser.optional_text(root, schema.position)
+        has_part = Parser.element(root, schema.hasPart)
         return cls(
-            type=type,
-            name=XMLLang.new(root, "schema:name"),
+            name=XMLLang.new(root, schema.name),
             position=int(position) if position else None,
-            has_parts=Parser.text_list(root, "schema:hasPart/schema:name"),
+            has_part=XMLLang.new(has_part, schema.name),
         )
 
 
 class CreativeWorkSeason(BaseModel):
-    type: Literal["schema:CreativeWorkSeason"]
     name: XMLLang
     season_number: int | None
 
     @classmethod
     def from_xml_tree(cls, root: Element) -> Self:
-        season_number = Parser.optional_text(root, "schema:seasonNumber")
-        type = root.get("xsi:type")
-        if type != "schema:CreativeWorkSeason":
-            raise ParseException()
-
+        season_number = Parser.optional_text(root, schema.seasonNumber)
         return cls(
-            type=type,
-            name=XMLLang.new(root, "schema:name"),
+            name=XMLLang.new(root, schema.name),
             season_number=int(season_number) if season_number else None,
         )
 
 
 class BroadcastEvent(BaseModel):
-    type: Literal["schema:BroadcastEvent"]
     name: XMLLang
 
     @classmethod
     def from_xml_tree(cls, root: Element) -> Self:
-        type = root.get("xsi:type")
-        if type != "schema:BroadcastEvent":
-            raise ParseException()
-
-        return cls(type=type, name=XMLLang.new(root, "schema:name"))
+        return cls(name=XMLLang.new(root, schema.name))
 
 
 AnyCreativeWork = Episode | ArchiveComponent | CreativeWorkSeries | CreativeWorkSeason
 
 
 def parse_is_part_of(root: Element) -> AnyCreativeWork | BroadcastEvent:
-    type = root.get("xsi:type")
-    # TODO: In a perfect world the xsi:type would first be expanded into its full IRI
-    # it should then be prefixed back using the `schema` prefix.
+    type = root.get(xsi.type)
+
     valid_types = typing.get_args(CreativeWorkType) + typing.get_args(EventTypes)
     if type not in valid_types:
         raise ParseException(f"schema:isPartOf must be one of {valid_types}")
 
     match type:
-        case "schema:Episode":
+        case schema.Episode:
             return Episode.from_xml_tree(root)
-        case "schema:ArchiveComponent":
+        case schema.ArchiveComponent:
             return ArchiveComponent.from_xml_tree(root)
-        case "schema:CreativeWorkSeries":
+        case schema.CreativeWorkSeries:
             return CreativeWorkSeries.from_xml_tree(root)
-        case "schema:CreativeWorkSeason":
+        case schema.CreativeWorkSeason:
             return CreativeWorkSeason.from_xml_tree(root)
-        case "schema:BroadcastEvent":
+        case schema.BroadcastEvent:
             return BroadcastEvent.from_xml_tree(root)
         case _:
             raise AssertionError("CreativeWorkType or EventTypes are not complete")
@@ -212,6 +186,7 @@ xsd_timedelta = str
 
 class DCPlusSchema(BaseModel):
     # basic profile
+    identifier: str
     title: XMLLang
     alternative: XMLLang | None
     extent: xsd_duration | None
@@ -224,7 +199,7 @@ class DCPlusSchema(BaseModel):
     creator: list[Creator]
     contributor: list[Contributor]
     spatial: list[str]
-    temporal: list[str]
+    temporal: XMLLang | None
     subject: XMLLang | None
     language: list[str]
     license: list[str]
@@ -242,56 +217,106 @@ class DCPlusSchema(BaseModel):
 
     # film profile
     country_of_origin: str | None
-    credit_text: list[str]
+    credit_text: XMLLang | None
     genre: str | None
 
     @classmethod
     def from_xml(cls, path: str | Path) -> Self:
-        root = ET.parse(path).getroot()
-        return cls.from_xml_tree(root)
+        return cls.from_xml_tree(parse_xml(path))
 
     @classmethod
     def from_xml_tree(cls, root: Element) -> Self:
-        creators = Parser.element_list(root, "schema:creator")
-        creators += Parser.element_list(root, "dcterms:creator")
-        publishers = Parser.element_list(root, "schema:publisher")
-        publishers += Parser.element_list(root, "dcterms:publisher")
-        contributors = Parser.element_list(root, "schema:contributor")
-        contributors += Parser.element_list(root, "dcterms:contributor")
+        creators = Parser.element_list(root, schema.creator)
+        creators += Parser.element_list(root, dcterms.creator)
+        publishers = Parser.element_list(root, schema.publisher)
+        publishers += Parser.element_list(root, dcterms.publisher)
+        contributors = Parser.element_list(root, schema.contributor)
+        contributors += Parser.element_list(root, dcterms.contributor)
 
         is_part_of = [
-            parse_is_part_of(el) for el in Parser.element_list(root, "schema:isPartOf")
+            parse_is_part_of(el) for el in Parser.element_list(root, schema.isPartOf)
         ]
 
         return cls(
-            title=XMLLang.new(root, "dcterms:title"),
-            alternative=XMLLang.optional(root, "dcterms:alternative"),
-            extent=Parser.optional_text(root, "dcterms:extent"),
-            available=Parser.optional_text(root, "dcterms:available"),
-            description=XMLLang.new(root, "dcterms:description"),
-            abstract=XMLLang.optional(root, "dcterms:abstract"),
-            created=Parser.text(root, "dcterms:created"),
-            issued=Parser.optional_text(root, "dcterms:issued"),
-            spatial=Parser.text_list(root, "dcterms:spatial"),
-            temporal=Parser.text_list(root, "dcterms:temporal"),
-            subject=XMLLang.optional(root, "dcterms:subject"),
-            language=Parser.text_list(root, "dcterms:language"),
-            license=Parser.text_list(root, "dcterms:license"),
-            rights_holder=XMLLang.optional(root, "dcterms:rightsHolder"),
-            rights=XMLLang.optional(root, "dcterms:rights"),
-            type=Parser.text(root, "dcterms:type"),
-            format=Parser.text(root, "dcterms:format"),
+            identifier=Parser.text(root, dcterms.identifier),
+            title=XMLLang.new(root, dcterms.title),
+            alternative=XMLLang.optional(root, dcterms.alternative),
+            extent=Parser.optional_text(root, dcterms.extent),
+            available=Parser.optional_text(root, dcterms.available),
+            description=XMLLang.new(root, dcterms.description),
+            abstract=XMLLang.optional(root, dcterms.abstract),
+            created=Parser.text(root, dcterms.created),
+            issued=Parser.optional_text(root, dcterms.issued),
+            spatial=Parser.text_list(root, dcterms.spatial),
+            temporal=XMLLang.optional(root, dcterms.temporal),
+            subject=XMLLang.optional(root, dcterms.subject),
+            language=Parser.text_list(root, dcterms.language),
+            license=Parser.text_list(root, dcterms.license),
+            rights_holder=XMLLang.optional(root, dcterms.rightsHolder),
+            rights=XMLLang.optional(root, dcterms.rights),
+            type=Parser.text(root, dcterms.type),
+            format=Parser.text(root, dcterms.format),
             creator=[Creator.from_xml_tree(el) for el in creators],
             publisher=[Publisher.from_xml_tree(el) for el in publishers],
             contributor=[Contributor.from_xml_tree(el) for el in contributors],
-            height=Height.from_xml_tree(root, "schema:height"),
-            width=Width.from_xml_tree(root, "schema:width"),
-            depth=Depth.from_xml_tree(root, "schema:depth"),
-            weight=Weight.from_xml_tree(root, "schema:weight"),
-            art_medium=XMLLang.optional(root, "dcterms:artMedium"),
-            artform=XMLLang.optional(root, "dcterms:artform"),
+            height=Height.from_xml_tree(root, schema.height),
+            width=Width.from_xml_tree(root, schema.width),
+            depth=Depth.from_xml_tree(root, schema.depth),
+            weight=Weight.from_xml_tree(root, schema.weight),
+            art_medium=XMLLang.optional(root, schema.artMedium),
+            artform=XMLLang.optional(root, schema.artform),
             is_part_of=is_part_of,
-            country_of_origin=Parser.optional_text(root, "schema:countryOfOrigin"),
-            credit_text=Parser.text_list(root, "schema:creditText"),
-            genre=Parser.optional_text(root, "schema:genre"),
+            country_of_origin=Parser.optional_text(root, schema.countryOfOrigin),
+            credit_text=XMLLang.optional(root, schema.creditText),
+            genre=Parser.optional_text(root, schema.genre),
         )
+
+
+def expand_attribute_qnames(
+    element: Element, document_namespaces: dict[str, str]
+) -> Element:
+    """
+    Certain attributes may have a prefixed value e.g. xsi:type="schema:Episode".
+    Expand the prefixed attribute value to its full qualified name e.g. "{https://schema.org/}Episode"
+    """
+
+    for k, v in element.attrib.items():
+        if k == xsi.type:
+            element.attrib[k] = expand_qname(v, document_namespaces)
+
+    for child in element:
+        _ = expand_attribute_qnames(child, document_namespaces)
+
+    return element
+
+
+def parse_xml(source: str | Path | TextIO):
+    document_namespaces = get_document_namespaces(source)
+    if not isinstance(source, (str, Path)):
+        source.seek(0)
+    root = ET.parse(source).getroot()
+    return expand_attribute_qnames(root, document_namespaces)
+
+
+def expand_qname(name: str, document_namespaces: dict[str, str]) -> str:
+    """
+    Expand a prefixed qualified name to its fully qualified name.
+    E.g. "schema:Episode" is expanded to "{https://schema.org/}Episode"
+    """
+
+    if ":" not in name:
+        return name
+
+    splitted_qname = name.split(":", 1)
+    prefix = splitted_qname[0]
+    local = splitted_qname[1]
+    prefix_iri = document_namespaces[prefix]
+
+    return "{" + prefix_iri + "}" + local
+
+
+def get_document_namespaces(source: str | Path | TextIO) -> dict[str, str]:
+    document_namespaces = [
+        ns_tuple for _, ns_tuple in ET.iterparse(source, events=["start-ns"])
+    ]
+    return dict(typing.cast(list[tuple[str, str]], document_namespaces))

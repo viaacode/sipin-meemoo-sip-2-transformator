@@ -17,7 +17,11 @@ from ..level import Level
 
 
 @dataclass
-class PreservationParser:
+class PreservationTransformer:
+    """
+    Transform premis SIP information into SIP.py objects (IntellectualEntity, DigitalRepresentation, Events, etc...)
+    """
+
     package: Level
     representations: list[Level]
 
@@ -83,7 +87,7 @@ class PreservationParser:
             _ = self.package.premis_info.representation
         except StopIteration:
             return None
-        parser = CarrierRepresentationParser(self.package)
+        parser = CarrierTransformer(self.package)
         return parser.parse_carrier_representation()
 
     def get_digital_representations(self) -> list[sippy.DigitalRepresentation]:
@@ -91,14 +95,14 @@ class PreservationParser:
         Extract the digital representation from the representation PREMIS files.
         """
         return [
-            RepresentationLevelParser(repr).parse_digital_representation()
+            DigitalTransformer(repr).parse_digital_representation()
             for repr in self.representations
         ]
 
     @property
     def events(self) -> list[sippy.Event]:
-        sippify = EventParser(self)
-        return [sippify.parse(event) for event in self.package.premis_info.events]
+        tf = EventTransformer(self)
+        return [tf.parse(event) for event in self.package.premis_info.events]
 
     @property
     def premis_agents(self) -> list[sippy.PremisAgent]:
@@ -150,10 +154,15 @@ def filter_digital_relationships_by_name(
 
 
 @dataclass
-class RepresentationLevelParser:
+class DigitalTransformer:
+    """
+    Transform a premis SIP representation into a SIP.py DigitalRepresentation
+    """
+
     representation_level: Level
 
     def is_digital_relationship(self, relationship: premis.Relationship) -> bool:
+        # TODO: represents also contains carrier representation
         return relationship.sub_type.text in sippy.Represents
 
     def parse_digital_representation(self) -> sippy.DigitalRepresentation:
@@ -191,7 +200,7 @@ class RepresentationLevelParser:
             id=premis_repr.uuid.value.text,
             represents=reference,
             includes=files,
-            name=sippy.LangStr(nl="Digital Representation"),
+            name=sippy.UniqueLangStrings.codes(nl="Digital Representation"),
             is_master_copy_of=is_master_copy_of,
             is_mezzanine_copy_of=is_mezzanine_copy_of,
             is_access_copy_of=is_access_copy_of,
@@ -215,8 +224,8 @@ class RepresentationLevelParser:
         return sippy.File(
             id=file.uuid.value.text,
             is_included_in=[sippy.Reference(id=representation_identifier)],
-            size=sippy.NonNegativeInt(value=size.value),
-            name=sippy.LangStr(nl="File"),
+            size=sippy.NonNegativeInt(value=int(size.value)),
+            name=sippy.UniqueLangStrings.codes(nl="File"),
             original_name=original_name,
             fixity=sippy.Fixity(
                 id=sippy.uuid4(),
@@ -235,7 +244,11 @@ class RepresentationLevelParser:
 
 
 @dataclass
-class CarrierRepresentationParser:
+class CarrierTransformer:
+    """
+    Transform the carrier representation in the package premis file into a SIP.py CarrierRepresentation.
+    """
+
     package_level: Level
 
     def is_carrier_relationship(self, relationship: premis.Relationship) -> bool:
@@ -257,7 +270,7 @@ class CarrierRepresentationParser:
             number_of_missing_image_reels=None,
             number_of_audio_tracks=None,
             number_of_audio_channels=None,
-            name=sippy.LangStr.codes(
+            name=sippy.UniqueLangStrings.codes(
                 nl=f"Carrier representation of {self.reference_to_entity.id}"
             ),
         )
@@ -291,7 +304,7 @@ class CarrierRepresentationParser:
             preservation_problem=[
                 sippy.Concept(
                     id=sippy.uuid4(),
-                    pref_label=sippy.LangStr.codes(nl=p),
+                    pref_label=sippy.UniqueLangStrings.codes(nl=p),
                 )
                 for p in physical_carrier.preservation_problems
             ],
@@ -301,7 +314,7 @@ class CarrierRepresentationParser:
         return sippy.ImageReel(
             **self.physical_carrier(image_reel).keywords,
             file_path=None,
-            name=sippy.LangStr.codes(nl=f"Image Reel {image_reel.medium}"),
+            name=sippy.UniqueLangStrings.codes(nl=f"Image Reel {image_reel.medium}"),
             coloring_type=[self.coloring_type(c) for c in image_reel.coloring_type],
             has_captioning=self.has_captioning(image_reel.has_captioning),
             aspect_ratio=image_reel.aspect_ratio,
@@ -362,8 +375,14 @@ class CarrierRepresentationParser:
         return sippy.Reference(id=relationship_to_entity.related_object_uuid)
 
 
-class EventParser:
-    def __init__(self, structural: "PreservationParser") -> None:
+class EventTransformer:
+    """
+    Transform a premis SIP Event into a SIP.py Event
+    """
+
+    def __init__(self, structural: "PreservationTransformer") -> None:
+        # Events can referece agents and objects from anywhere in the SIP
+        # These map the refences to the actual agents and objects
         self.agent_map = AgentMap.create(structural)
         self.object_map = ObjectMap.create(structural)
 
@@ -480,8 +499,8 @@ class EventParser:
         implementer_agent = next(agents)
         return sippy.Organization(
             identifier=implementer_agent.primary_identifier.value.text,
-            pref_label=sippy.LangStr.codes(nl=implementer_agent.name.text),
-            name=sippy.LangStr.codes(nl=implementer_agent.name.text),
+            pref_label=sippy.UniqueLangStrings.codes(nl=implementer_agent.name.text),
+            name=sippy.UniqueLangStrings.codes(nl=implementer_agent.name.text),
         )
 
     def agent_is_executer(self, link: premis.LinkingAgentIdentifier) -> bool:
@@ -499,7 +518,7 @@ class EventParser:
 
         return sippy.SoftwareAgent(
             id=executer_agent.primary_identifier.value.text,
-            name=sippy.LangStr(nl=executer_agent.name.text),
+            name=sippy.UniqueLangStrings.codes(nl=executer_agent.name.text),
             model=None,
             serial_number=None,
             version=None,
@@ -516,7 +535,7 @@ class EventParser:
         ]
         return [
             sippy.HardwareAgent(
-                name=sippy.LangStr(nl=ag.name.text),
+                name=sippy.UniqueLangStrings.codes(nl=ag.name.text),
                 model=None,
                 serial_number=None,
                 version=None,
@@ -538,7 +557,7 @@ class EventParser:
         return [
             sippy.Person(
                 id=agent.uuid.value.text,
-                name=sippy.LangStr(nl=agent.name.text),
+                name=sippy.UniqueLangStrings.codes(nl=agent.name.text),
                 birth_date=None,
                 death_date=None,
             )

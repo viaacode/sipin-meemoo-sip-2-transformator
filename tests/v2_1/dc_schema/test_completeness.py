@@ -10,13 +10,16 @@ import pytest
 from app.v2_1.descriptive.models.dc_schema import DCPlusSchema, parse_xml
 from app.v2_1.namespaces import xsi
 
-sip_examples_paths = Path("tests/sip-examples/2.1").glob("**/dc+schema.xml")
-local_examples_path = Path("tests/v2_1/dc_schema/samples").glob("**/*.xml")
-dc_schema_paths = chain(sip_examples_paths, local_examples_path)
+sip_examples_dc_schema_paths = Path("tests/sip-examples/2.1").glob("**/dc+schema.xml")
+local_dc_schema_examples_path = Path("tests/v2_1/dc_schema/samples").glob("**/*.xml")
+dc_schema_paths = chain(sip_examples_dc_schema_paths, local_dc_schema_examples_path)
 
 
-def _create_set_from_object(object: Any) -> frozenset[Any]:
-    object_set = set[Any]()
+def _create_set_from_object(object: Any) -> frozenset[str]:
+    """
+    Recursively go through the fields of an object, extract all values and put them in a set.
+    """
+    object_set = set[str]()
 
     if isinstance(object, BaseModel):
         for _, field_value in object.__dict__.items():
@@ -32,8 +35,11 @@ def _create_set_from_object(object: Any) -> frozenset[Any]:
     return frozenset(object_set)
 
 
-def _create_set_from_xml_element(element: ET.Element) -> frozenset[Any]:
-    element_set = set[Any]()
+def _create_set_from_xml_element(element: ET.Element) -> frozenset[str]:
+    """
+    Recursively go through an XML element and its children, extract all text and attribute values and put them in a set.
+    """
+    element_set = set[str]()
 
     for k, v in element.attrib.items():
         if k != xsi.type:
@@ -44,7 +50,10 @@ def _create_set_from_xml_element(element: ET.Element) -> frozenset[Any]:
         element_set |= _create_set_from_xml_element(child)
 
     if len(children) == 0:
-        element_set.add(element.text)
+        if element.text is not None:
+            element_set.add(element.text)
+        else:
+            element_set.add("")
 
     return frozenset(element_set)
 

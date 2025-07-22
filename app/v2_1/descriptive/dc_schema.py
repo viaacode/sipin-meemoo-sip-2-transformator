@@ -290,19 +290,24 @@ class DCSchemaTransformator:
         name = sip_creative_work.name.to_unique_lang_strings()
         match sip_creative_work:
             case dcs.BroadcastEvent():
-                # TODO: must first be added to datamodels properly
                 return sippy.BroadcastEvent(name=name)
             case dcs.Episode():
-                # TODO: hardcoded identifier
+                # TODO: identifier in datamodels is 1..1
                 return sippy.Episode(name=name)
             case dcs.ArchiveComponent():
                 return sippy.ArchiveComponent(name=name)
             case dcs.CreativeWorkSeries():
+                has_part_name = sip_creative_work.has_part.to_unique_lang_strings()
                 return sippy.CreativeWorkSeries(
                     name=name,
                     position=sip_creative_work.position,
-                    # TODO fix empty has_part
-                    has_part=[],
+                    has_part=[
+                        sippy.CreativeWorkSeries(
+                            name=has_part_name,
+                            position=None,
+                            has_part=[],
+                        )
+                    ],
                 )
             case dcs.CreativeWorkSeason():
                 return sippy.CreativeWorkSeason(

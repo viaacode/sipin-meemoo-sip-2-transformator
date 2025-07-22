@@ -24,7 +24,6 @@ class _Role(BaseModel):
     def from_xml_tree(cls, root: Element) -> Self:
         return cls(
             name=XMLLang.new(root, schema.name),
-            # TODO: check that registration tool also uses qname for attributes
             role_name=root.get(schema.roleName),
             birth_date=Parser.optional_text(root, schema.birthDate),
             death_date=Parser.optional_text(root, schema.deathDate),
@@ -122,16 +121,16 @@ class ArchiveComponent(BaseModel):
 class CreativeWorkSeries(BaseModel):
     name: XMLLang
     position: int | None
-    has_parts: list[XMLLang]
+    has_part: XMLLang
 
     @classmethod
     def from_xml_tree(cls, root: Element) -> Self:
         position = Parser.optional_text(root, schema.position)
-        parts = Parser.element_list(root, schema.hasPart)
+        has_part = Parser.element(root, schema.hasPart)
         return cls(
             name=XMLLang.new(root, schema.name),
             position=int(position) if position else None,
-            has_parts=[XMLLang.new(el, schema.name) for el in parts],
+            has_part=XMLLang.new(has_part, schema.name),
         )
 
 

@@ -319,4 +319,4 @@ class DCSchemaTransformator:
     def genre(self) -> sippy.UniqueLangStrings | None:
         if self.dc_plus_schema.genre is None:
             return None
-        return sippy.UniqueLangStrings.codes(nl=self.dc_plus_schema.genre)
+        return self.dc_plus_schema.genre.to_unique_lang_strings()

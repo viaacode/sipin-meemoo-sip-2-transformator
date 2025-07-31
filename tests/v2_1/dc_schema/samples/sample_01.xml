@@ -14,7 +14,7 @@
   <dcterms:abstract xml:lang="nl">Hello world</dcterms:abstract>
   <dcterms:created xsi:type="edtf:EDTF-level2">XXXX-XX-XX</dcterms:created>
   <dcterms:issued xsi:type="edtf:EDTF-level1">2025</dcterms:issued>
-  <schema:genre>amateur recording</schema:genre>
+  <schema:genre xml:lang="nl">amateur recording</schema:genre>
 
 
   <dcterms:publisher>

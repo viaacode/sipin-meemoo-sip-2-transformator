@@ -215,10 +215,8 @@ class DCPlusSchema(BaseModel):
     artform: XMLLang | None
     is_part_of: list[AnyCreativeWork | BroadcastEvent]
 
-    # film profile
-    country_of_origin: str | None
     credit_text: XMLLang | None
-    genre: str | None
+    genre: XMLLang | None
 
     @classmethod
     def from_xml(cls, path: str | Path) -> Self:
@@ -266,9 +264,8 @@ class DCPlusSchema(BaseModel):
             art_medium=XMLLang.optional(root, schema.artMedium),
             artform=XMLLang.optional(root, schema.artform),
             is_part_of=is_part_of,
-            country_of_origin=Parser.optional_text(root, schema.countryOfOrigin),
             credit_text=XMLLang.optional(root, schema.creditText),
-            genre=Parser.optional_text(root, schema.genre),
+            genre=XMLLang.optional(root, schema.genre),
         )
 
 

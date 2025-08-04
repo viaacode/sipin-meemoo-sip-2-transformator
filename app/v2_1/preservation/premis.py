@@ -5,6 +5,8 @@ from itertools import chain
 from pydantic.dataclasses import dataclass
 
 import sippy
+
+from app.v2_1.namespaces import haObj
 from ..models import premis
 
 from .premis_utils import AgentMap, ObjectMap, TemporaryObject
@@ -49,7 +51,7 @@ class PreservationTransformer:
             if id.is_primary_identifier
         ]
         local_identifiers = [
-            sippy.LocalIdentifier(value=id.value.text)
+            sippy.LocalIdentifier(value=id.value.text, type=haObj[id.type.text])
             for id in entity.identifiers
             if id.is_local_identifier
         ]

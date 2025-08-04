@@ -4,6 +4,9 @@ class NamespaceMeta(type):
     def __getattr__(cls, item: str) -> str:
         return "{" + cls.__ns__ + "}" + item
 
+    def __getitem__(cls, item: str) -> str:
+        return "{" + cls.__ns__ + "}" + item
+
 
 class Namespace(metaclass=NamespaceMeta):
     pass
@@ -19,3 +22,7 @@ class schema(Namespace):
 
 class dcterms(Namespace):
     __ns__ = "http://purl.org/dc/terms/"
+
+
+class haObj(Namespace):
+    __ns__ = "https://data.hetarchief.be/ns/object/"

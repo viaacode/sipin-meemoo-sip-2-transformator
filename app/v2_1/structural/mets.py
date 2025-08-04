@@ -31,6 +31,7 @@ OtherContentInformationType = StrEnum(
 
 
 class METS(BaseModel):
+    type: str
     other_content_information_type: OtherContentInformationType
     agents: list[sippy.METSAgent]
     descriptive_metadata: Path | None
@@ -96,8 +97,10 @@ def parse_mets(mets_path: Path) -> METS:
     other_content_information_type = OtherContentInformationType(
         other_content_information_type
     )
+    type = xpath_text(mets_xml, "@TYPE")
 
     return METS(
+        type=type,
         other_content_information_type=other_content_information_type,
         agents=agents,
         descriptive_metadata=(

@@ -55,6 +55,7 @@ def parse_sip(sip_path: str | Path) -> sippy.SIP:
     )
 
     return sippy.SIP(
+        mets_type=sip.package.mets_info.type,
         profile=sip.package.mets_info.other_content_information_type,
         entity=ie,
         events=preservation_parser.events,

@@ -1,30 +1,39 @@
 from typing import Self
 from xml.etree.ElementTree import Element
 
-from pydantic import BaseModel
+from pydantic.dataclasses import dataclass
 
-from ..utils import Parser
+from eark_models.namespaces import Namespace
+
+from ..utils import TransformatorError
 
 
-class OpenCaptions(BaseModel):
+class haSip(Namespace):
+    __ns__ = "https://data.hetarchief.be/ns/sip/"
+
+
+@dataclass
+class OpenCaptions:
     in_languages: list[str]
 
     @classmethod
     def from_xml_tree(cls, element: Element) -> Self:
-        langs = Parser.text_list(element, "hasip:inLanguage")
+        langs = [el.text for el in element.findall(haSip.inLanguage) if el.text]
         return cls(in_languages=langs)
 
 
-class HasCaptioning(BaseModel):
+@dataclass
+class HasCaptioning:
     open_captions: list[OpenCaptions]
 
     @classmethod
     def from_xml_tree(cls, element: Element) -> Self:
-        captions = Parser.element_list(element, "hasip:openCaptions")
+        captions = element.findall(haSip.openCaptions)
         return cls(open_captions=[OpenCaptions.from_xml_tree(el) for el in captions])
 
 
-class ImageReel(BaseModel):
+@dataclass
+class ImageReel:
     identifier: str
     medium: str
     aspect_ratio: str | None
@@ -37,29 +46,31 @@ class ImageReel(BaseModel):
 
     @classmethod
     def from_xml_tree(cls, element: Element) -> Self:
+        captioning = element.find(haSip.hasCaptioning)
         return cls(
-            identifier=Parser.text(element, "hasip:identifier"),
-            medium=Parser.text(element, "hasip:medium"),
-            aspect_ratio=Parser.optional_text(element, "hasip:aspectRatio"),
-            material=Parser.optional_text(element, "hasip:material"),
-            preservation_problems=Parser.text_list(
-                element, "hasip:preservationProblems"
-            ),
-            stock_type=Parser.optional_text(element, "hasip:stockType"),
-            coloring_type=Parser.text_list(element, "hasip:coloringType"),
+            identifier=get_text(element, haSip.identifier),
+            medium=get_text(element, haSip.medium),
+            aspect_ratio=element.findtext(haSip.aspectRatio),
+            material=element.findtext(haSip.material),
+            preservation_problems=[
+                (el.text if el.text else "")
+                for el in element.findall(haSip.preservationProblems)
+            ],
+            stock_type=element.findtext(haSip.stockType),
+            coloring_type=[
+                (el.text if el.text else "")
+                for el in element.findall(haSip.coloringType)
+            ],
             has_captioning=(
                 HasCaptioning.from_xml_tree(captioning)
-                if (
-                    captioning := Parser.optional_element(
-                        element, "hasip:hasCaptioning"
-                    )
-                )
+                if captioning is not None
                 else None
             ),
         )
 
 
-class AudioReel(BaseModel):
+@dataclass(kw_only=True)
+class AudioReel:
     identifier: str
     medium: str
     aspect_ratio: str | None
@@ -70,25 +81,27 @@ class AudioReel(BaseModel):
     @classmethod
     def from_xml_tree(cls, element: Element) -> Self:
         return cls(
-            identifier=Parser.text(element, "hasip:identifier"),
-            medium=Parser.text(element, "hasip:medium"),
-            aspect_ratio=Parser.optional_text(element, "hasip:aspectRatio"),
-            material=Parser.optional_text(element, "hasip:material"),
-            preservation_problems=Parser.text_list(
-                element, "hasip:preservationProblems"
-            ),
-            stock_type=Parser.optional_text(element, "hasip:stockType"),
+            identifier=get_text(element, haSip.identifier),
+            medium=get_text(element, haSip.medium),
+            aspect_ratio=element.findtext(haSip.aspectRatio),
+            material=element.findtext(haSip.material),
+            preservation_problems=[
+                (el.text if el.text else "")
+                for el in element.findall(haSip.preservationProblems)
+            ],
+            stock_type=element.findtext(haSip.stockType),
         )
 
 
-class StoredAt(BaseModel):
+@dataclass(kw_only=True)
+class StoredAt:
     image_reels: list[ImageReel]
     audio_reels: list[AudioReel]
 
     @classmethod
     def from_xml_tree(cls, element: Element) -> Self:
-        images = Parser.element_list(element, "hasip:imageReel")
-        audios = Parser.element_list(element, "hasip:audioReel")
+        images = element.findall(haSip.imageReel)
+        audios = element.findall(haSip.audioReel)
 
         return cls(
             image_reels=[ImageReel.from_xml_tree(image) for image in images],
@@ -96,7 +109,8 @@ class StoredAt(BaseModel):
         )
 
 
-class CarrierSignificantProperties(BaseModel):
+@dataclass(kw_only=True)
+class CarrierSignificantProperties:
     number_of_reels: int | None
     has_missing_audio_reels: bool | None
     has_missing_image_reels: bool | None
@@ -104,9 +118,9 @@ class CarrierSignificantProperties(BaseModel):
 
     @classmethod
     def from_xml_tree(cls, element: Element) -> Self:
-        n_reels = Parser.optional_text(element, "hasip:numberOfReels")
-        missing_audio = Parser.optional_text(element, "hasip:hasMissingAudioReels")
-        missing_image = Parser.optional_text(element, "hasip:hasMissingImageReels")
+        n_reels = element.findtext(haSip.numberOfReels)
+        missing_audio = element.findtext(haSip.hasMissingAudioReels)
+        missing_image = element.findtext(haSip.hasMissingImageReels)
 
         return cls(
             number_of_reels=int(n_reels) if n_reels is not None else None,
@@ -118,6 +132,13 @@ class CarrierSignificantProperties(BaseModel):
             ),
             stored_at=[
                 StoredAt.from_xml_tree(stored_at)
-                for stored_at in Parser.element_list(element, "hasip:storedAt")
+                for stored_at in element.findall(haSip.storedAt)
             ],
         )
+
+
+def get_text(element: Element, path: str) -> str:
+    el = element.find(path)
+    if el is None:
+        raise TransformatorError(f"No element found at {path}")
+    return el.text if el.text is not None else ""

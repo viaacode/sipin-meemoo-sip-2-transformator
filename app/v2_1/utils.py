@@ -1,8 +1,9 @@
 from lxml.etree import _Element
-from xml.etree.ElementTree import Element
+
+SIP_VERSION = "2.1"
 
 
-class ParseException(Exception): ...
+class TransformatorError(Exception): ...
 
 
 class XPathException(Exception): ...
@@ -95,35 +96,3 @@ def xpath_text(element: _Element, path: str) -> str:
             f"Could not resolve '{path}' on {element} to a string. Did you forget 'text()'?"
         )
     return result[0]
-
-
-class Parser:
-    @staticmethod
-    def text(root: Element, path: str) -> str:
-        text = root.findtext(path, namespaces=ns)
-        if text is None:
-            raise ParseException(f"No element found at {path}")
-        return text
-
-    @staticmethod
-    def optional_text(root: Element, path: str) -> str | None:
-        return root.findtext(path, namespaces=ns)
-
-    @staticmethod
-    def text_list(root: Element, path: str) -> list[str]:
-        return [el.text for el in root.findall(path, namespaces=ns) if el.text]
-
-    @staticmethod
-    def element_list(root: Element, path: str) -> list[Element]:
-        return root.findall(path, namespaces=ns)
-
-    @staticmethod
-    def element(root: Element, path: str) -> Element:
-        element = root.find(path, namespaces=ns)
-        if element is None:
-            raise ParseException(f"No element found at {path}")
-        return element
-
-    @staticmethod
-    def optional_element(root: Element, path: str) -> Element | None:
-        return root.find(path, namespaces=ns)

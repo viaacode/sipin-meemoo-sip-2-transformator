@@ -5,7 +5,7 @@ from functools import partial
 from ..models import mods
 import sippy
 
-from ..utils import ParseException
+from ..utils import TransformatorError
 
 
 def parse_mods(path: Path) -> partial[sippy.IntellectualEntity]:
@@ -16,7 +16,7 @@ def parse_mods(path: Path) -> partial[sippy.IntellectualEntity]:
 
     date_created = next(chain(*[info.dates_created for info in desc.origin_infos]))
     if date_created.encoding != "edtf":
-        raise ParseException(
+        raise TransformatorError(
             "Date created must have attribute 'encoding' set to 'edtf'"
         )
 

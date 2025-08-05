@@ -22,5 +22,5 @@ unzipped_path_names = [str(path.parent.name) for path in unzipped_paths]
 
 @pytest.mark.parametrize("unzipped_path", unzipped_paths, ids=unzipped_path_names)
 def test_examples(unzipped_path: Path):
-    data = transform_sip(str(unzipped_path))
+    data = transform_sip(unzipped_path)
     sippy.SIP.deserialize(data)

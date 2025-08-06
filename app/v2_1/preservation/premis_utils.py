@@ -40,11 +40,11 @@ class AgentMap(BaseModel):
     map: dict[Identifier, premis.Agent]
 
     @classmethod
-    def create(cls, structural: "PreservationTransformer") -> Self:
+    def create(cls, transformer: "PreservationTransformer") -> Self:
         all_agents: list[premis.Agent] = []
-        all_agents.extend(structural.package.premis_info.agents)
-        for repr in structural.representations:
-            all_agents.extend(repr.premis_info.agents)
+        all_agents.extend(transformer.sip.metadata.preservation.agents)
+        for repr in transformer.sip.representations:
+            all_agents.extend(repr.metadata.preservation.agents)
 
         agent_map: dict[Identifier, premis.Agent] = {}
         for agent in all_agents:
@@ -67,11 +67,11 @@ class ObjectMap(BaseModel):
     map: dict[Identifier, premis.Object]
 
     @classmethod
-    def create(cls, structural: "PreservationTransformer") -> Self:
+    def create(cls, transformer: "PreservationTransformer") -> Self:
         all_objects: list[premis.Object] = []
-        all_objects.extend(structural.package.premis_info.objects)
-        for repr in structural.representations:
-            all_objects.extend(repr.premis_info.objects)
+        all_objects.extend(transformer.sip.metadata.preservation.objects)
+        for repr in transformer.sip.representations:
+            all_objects.extend(repr.metadata.preservation.objects)
 
         object_map: dict[Identifier, premis.Object] = {}
         for object in all_objects:
@@ -84,13 +84,15 @@ class ObjectMap(BaseModel):
     def _create_temporary_object(self, link) -> TemporaryObject:
         return TemporaryObject(
             id=premis.ObjectIdentifier(
+                __source__="",
                 type=premis.ObjectIdentifierType(
+                    __source__="",
                     text=link.type.text,
                     authority=link.type.authority,
                     authority_uri=link.type.authority_uri,
                     value_uri=link.type.value_uri,
                 ),
-                value=premis.ObjectIdentifierValue(text=link.value.text),
+                value=premis.ObjectIdentifierValue(__source__="", text=link.value.text),
                 simple_link=None,
             )
         )

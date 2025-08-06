@@ -10,13 +10,13 @@ from pydantic import BaseModel
 import sippy
 
 from ..utils import (
-    ParseException,
+    TransformatorError,
     xpath_element_list,
     xpath_text_list,
     xpath_optional_text,
     xpath_text,
 )
-from ..version import SIP_VERSION
+from ..utils import SIP_VERSION
 
 
 OtherContentInformationType = StrEnum(
@@ -31,6 +31,7 @@ OtherContentInformationType = StrEnum(
 
 
 class METS(BaseModel):
+    type: str
     other_content_information_type: OtherContentInformationType
     agents: list[sippy.METSAgent]
     descriptive_metadata: Path | None
@@ -48,10 +49,10 @@ class METS(BaseModel):
             if agent.role == "ARCHIVIST" and agent.type == "ORGANIZATION"
         ]
         if len(archivist) != 1:
-            raise ParseException("No archivist agent found in METS")
+            raise TransformatorError("No archivist agent found in METS")
         note = archivist[0].note
         if not isinstance(note, sippy.EARKNote):
-            raise ParseException("Archivist note must be an e-ark note")
+            raise TransformatorError("Archivist note must be an e-ark note")
 
         archivist_name = archivist[0].name
         return sippy.ContentPartner(
@@ -96,8 +97,10 @@ def parse_mets(mets_path: Path) -> METS:
     other_content_information_type = OtherContentInformationType(
         other_content_information_type
     )
+    type = xpath_text(mets_xml, "@TYPE")
 
     return METS(
+        type=type,
         other_content_information_type=other_content_information_type,
         agents=agents,
         descriptive_metadata=(
@@ -114,9 +117,11 @@ def parse_mets_agent(agent: _Element) -> sippy.METSAgent:
     role = xpath_text(agent, "@ROLE")
     type = xpath_optional_text(agent, "@TYPE")
     if role not in typing.get_args(sippy.METSRole):
-        raise ParseException(f"@ROLE must be one of {typing.get_args(sippy.METSRole)}")
+        raise TransformatorError(
+            f"@ROLE must be one of {typing.get_args(sippy.METSRole)}"
+        )
     if type not in typing.get_args(sippy.METSAgentType):
-        raise ParseException(
+        raise TransformatorError(
             f"@TYPE must be one of {typing.get_args(sippy.METSAgentType)}"
         )
 

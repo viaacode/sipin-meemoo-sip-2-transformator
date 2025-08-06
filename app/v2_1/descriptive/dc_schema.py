@@ -5,9 +5,8 @@ from pydantic.dataclasses import dataclass
 
 import sippy
 
-from app.v2_1.utils import ParseException
-
-from .models import dc_schema as dcs
+from ..utils import TransformatorError
+from ..models import dcs
 
 
 def parse_dc_schema(path: Path) -> partial[sippy.IntellectualEntity]:
@@ -66,13 +65,13 @@ class DCSchemaTransformator:
 
     @property
     def title(self) -> sippy.UniqueLangStrings:
-        return self.dc_plus_schema.title.to_unique_lang_strings()
+        return to_unique_lang_strings(self.dc_plus_schema.title)
 
     @property
     def alternative(self) -> sippy.LangStrings | None:
-        if self.dc_plus_schema.alternative is None:
+        if len(self.dc_plus_schema.alternative) == 0:
             return None
-        return self.dc_plus_schema.alternative.to_lang_strings()
+        return to_lang_strings(self.dc_plus_schema.alternative)
 
     @property
     def available(self) -> sippy.DateTime | None:
@@ -82,24 +81,24 @@ class DCSchemaTransformator:
 
     @property
     def description(self) -> sippy.UniqueLangStrings | None:
-        return self.dc_plus_schema.description.to_unique_lang_strings()
+        return to_unique_lang_strings(self.dc_plus_schema.description)
 
     @property
     def abstract(self) -> sippy.UniqueLangStrings | None:
-        if self.dc_plus_schema.abstract is None:
+        if len(self.dc_plus_schema.abstract) == 0:
             return None
-        return self.dc_plus_schema.abstract.to_unique_lang_strings()
+        return to_unique_lang_strings(self.dc_plus_schema.abstract)
 
     @property
     def created(self) -> sippy.EDTF:
         # TODO: check all EDTF levels in transformator
-        return sippy.EDTF_level1(value=self.dc_plus_schema.created)
+        return to_sippy_edtf(self.dc_plus_schema.created)
 
     @property
     def issued(self) -> sippy.EDTF | None:
         if self.dc_plus_schema.issued is None:
             return None
-        return sippy.EDTF_level1(value=self.dc_plus_schema.issued)
+        return to_sippy_edtf(self.dc_plus_schema.issued)
 
     @property
     def publisher(self) -> list[sippy.Role]:
@@ -122,15 +121,15 @@ class DCSchemaTransformator:
 
     @property
     def temporal(self) -> sippy.LangStrings | None:
-        if self.dc_plus_schema.temporal is None:
+        if len(self.dc_plus_schema.temporal) == 0:
             return None
-        return self.dc_plus_schema.temporal.to_lang_strings()
+        return to_lang_strings(self.dc_plus_schema.temporal)
 
     @property
     def subject(self) -> sippy.LangStrings | None:
-        if self.dc_plus_schema.subject is None:
+        if len(self.dc_plus_schema.subject) == 0:
             return None
-        return self.dc_plus_schema.subject.to_lang_strings()
+        return to_lang_strings(self.dc_plus_schema.subject)
 
     @property
     def in_language(self) -> list[str]:
@@ -150,17 +149,17 @@ class DCSchemaTransformator:
     def copyright_holder(
         self,
     ) -> list[sippy.Thing | sippy.AnyOrganization | sippy.Person]:
-        if self.dc_plus_schema.rights_holder is None:
+        if len(self.dc_plus_schema.rights_holder) == 0:
             return []
         return [
-            sippy.Thing(name=self.dc_plus_schema.rights_holder.to_unique_lang_strings())
+            sippy.Thing(name=to_unique_lang_strings(self.dc_plus_schema.rights_holder))
         ]
 
     @property
     def rights(self) -> sippy.LangStrings | None:
-        if self.dc_plus_schema.rights is None:
+        if len(self.dc_plus_schema.rights) == 0:
             return None
-        return self.dc_plus_schema.rights.to_lang_strings()
+        return to_lang_strings(self.dc_plus_schema.rights)
 
     @property
     def type(self) -> sippy.EntityClass:
@@ -168,7 +167,7 @@ class DCSchemaTransformator:
         type_iri = "haDes:" + type
         entity_classes = [c.value for c in sippy.EntityClass]
         if type_iri not in entity_classes:
-            raise ParseException(
+            raise TransformatorError(
                 f"dcterms:type must be the local part of one of {entity_classes}"
             )
         return sippy.EntityClass(type_iri)
@@ -195,15 +194,15 @@ class DCSchemaTransformator:
 
     @property
     def art_medium(self) -> sippy.LangStrings | None:
-        if self.dc_plus_schema.art_medium is None:
+        if len(self.dc_plus_schema.art_medium) == 0:
             return None
-        return self.dc_plus_schema.art_medium.to_lang_strings()
+        return to_lang_strings(self.dc_plus_schema.art_medium)
 
     @property
     def artform(self) -> sippy.LangStrings | None:
-        if self.dc_plus_schema.artform is None:
+        if len(self.dc_plus_schema.artform) == 0:
             return None
-        return self.dc_plus_schema.artform.to_lang_strings()
+        return to_lang_strings(self.dc_plus_schema.artform)
 
     @property
     def schema_is_part_of(self) -> list[sippy.AnyCreativeWork | sippy.BroadcastEvent]:
@@ -211,9 +210,9 @@ class DCSchemaTransformator:
 
     @property
     def credit_text(self) -> sippy.LangStrings | None:
-        if self.dc_plus_schema.credit_text is None:
+        if len(self.dc_plus_schema.credit_text) == 0:
             return None
-        return self.dc_plus_schema.credit_text.to_lang_strings()
+        return to_lang_strings(self.dc_plus_schema.credit_text)
 
     @property
     def extent(self) -> sippy.Duration | None:
@@ -225,20 +224,20 @@ class DCSchemaTransformator:
         is_person = role.birth_date or role.death_date
         if is_person:
             member = sippy.Person(
-                name=role.name.to_unique_lang_strings(),
+                name=to_unique_lang_strings(role.name),
                 birth_date=(
-                    sippy.EDTF_level1(value=role.birth_date)
+                    sippy.EDTF_level1(value=role.birth_date.text)
                     if role.birth_date
                     else None
                 ),
                 death_date=(
-                    sippy.EDTF_level1(value=role.death_date)
+                    sippy.EDTF_level1(value=role.death_date.text)
                     if role.death_date
                     else None
                 ),
             )
         else:
-            member = sippy.Thing(name=role.name.to_unique_lang_strings())
+            member = sippy.Thing(name=to_unique_lang_strings(role.name))
 
         match role:
             case dcs.Contributor():
@@ -287,7 +286,7 @@ class DCSchemaTransformator:
     def creative_work(
         self, sip_creative_work: dcs.AnyCreativeWork | dcs.BroadcastEvent
     ) -> sippy.AnyCreativeWork | sippy.BroadcastEvent:
-        name = sip_creative_work.name.to_unique_lang_strings()
+        name = to_unique_lang_strings(sip_creative_work.name)
         match sip_creative_work:
             case dcs.BroadcastEvent():
                 return sippy.BroadcastEvent(name=name)
@@ -297,7 +296,10 @@ class DCSchemaTransformator:
             case dcs.ArchiveComponent():
                 return sippy.ArchiveComponent(name=name)
             case dcs.CreativeWorkSeries():
-                has_part_name = sip_creative_work.has_part.to_unique_lang_strings()
+                has_part_names = [
+                    to_unique_lang_strings(has_part.name)
+                    for has_part in sip_creative_work.has_part
+                ]
                 return sippy.CreativeWorkSeries(
                     name=name,
                     position=sip_creative_work.position,
@@ -307,6 +309,7 @@ class DCSchemaTransformator:
                             position=None,
                             has_part=[],
                         )
+                        for has_part_name in has_part_names
                     ],
                 )
             case dcs.CreativeWorkSeason():
@@ -317,6 +320,30 @@ class DCSchemaTransformator:
 
     @property
     def genre(self) -> sippy.UniqueLangStrings | None:
-        if self.dc_plus_schema.genre is None:
+        if len(self.dc_plus_schema.genre) == 0:
             return None
-        return sippy.UniqueLangStrings.codes(nl=self.dc_plus_schema.genre)
+        return to_unique_lang_strings(self.dc_plus_schema.genre)
+
+
+def to_unique_lang_strings(
+    langstrings: list[dcs.LangString],
+) -> sippy.UniqueLangStrings:
+    return sippy.UniqueLangStrings(
+        root=[sippy.LangString(lang=l.lang, value=l.value) for l in langstrings]
+    )
+
+
+def to_lang_strings(langstrings: list[dcs.LangString]) -> sippy.LangStrings:
+    return sippy.LangStrings(
+        root=[sippy.LangString(lang=l.lang, value=l.value) for l in langstrings]
+    )
+
+
+def to_sippy_edtf(edtf: dcs.EDTF) -> sippy.EDTF:
+    match edtf.xsi_type:
+        case "{http://id.loc.gov/datatypes/edtf/}EDTF-level0":
+            return sippy.EDTF_level0(value=edtf.text)
+        case "{http://id.loc.gov/datatypes/edtf/}EDTF-level1":
+            return sippy.EDTF_level1(value=edtf.text)
+        case "{http://id.loc.gov/datatypes/edtf/}EDTF-level2":
+            return sippy.EDTF_level2(value=edtf.text)

@@ -1,19 +1,21 @@
-from typing import cast
+from typing import cast, Any
 from functools import partial, cached_property
 from itertools import chain
 
 from pydantic.dataclasses import dataclass
 
 import sippy
-from ..models import premis
+from eark_models.namespaces import Namespace
 
+from ..models import premis, SIP, Representation
 from .premis_utils import AgentMap, ObjectMap, TemporaryObject
 from . import film
 
-from ..utils import ParseException
+from ..utils import TransformatorError
 
 
-from ..level import Level
+class haObj(Namespace):
+    __ns__ = "https://data.hetarchief.be/ns/object/"
 
 
 @dataclass
@@ -22,8 +24,7 @@ class PreservationTransformer:
     Transform premis SIP information into SIP.py objects (IntellectualEntity, DigitalRepresentation, Events, etc...)
     """
 
-    package: Level
-    representations: list[Level]
+    sip: SIP[Any]
 
     @property
     def intellectual_entity_info(self) -> partial[sippy.IntellectualEntity]:
@@ -40,7 +41,7 @@ class PreservationTransformer:
         return partial(structural, is_represented_by=is_represented_by)
 
     def get_package_level_structural_info(self) -> partial[sippy.IntellectualEntity]:
-        entity = self.package.premis_info.entity
+        entity = self.sip.metadata.preservation.entity
         entity_id = entity.pid.value.text if entity.pid else entity.uuid.value.text
 
         primary_identifiers = [
@@ -49,7 +50,7 @@ class PreservationTransformer:
             if id.is_primary_identifier
         ]
         local_identifiers = [
-            sippy.LocalIdentifier(value=id.value.text)
+            sippy.LocalIdentifier(value=id.value.text, type=haObj[id.type.text])
             for id in entity.identifiers
             if id.is_local_identifier
         ]
@@ -84,10 +85,10 @@ class PreservationTransformer:
         """
 
         try:
-            _ = self.package.premis_info.representation
+            _ = self.sip.metadata.preservation.representation
         except StopIteration:
             return None
-        parser = CarrierTransformer(self.package)
+        parser = CarrierTransformer(self.sip)
         return parser.parse_carrier_representation()
 
     def get_digital_representations(self) -> list[sippy.DigitalRepresentation]:
@@ -95,14 +96,14 @@ class PreservationTransformer:
         Extract the digital representation from the representation PREMIS files.
         """
         return [
-            DigitalTransformer(repr).parse_digital_representation()
-            for repr in self.representations
+            RepresentationTransformer(repr).parse_digital_representation()
+            for repr in self.sip.representations
         ]
 
     @property
     def events(self) -> list[sippy.Event]:
         tf = EventTransformer(self)
-        return [tf.parse(event) for event in self.package.premis_info.events]
+        return [tf.parse(event) for event in self.sip.metadata.preservation.events]
 
     @property
     def premis_agents(self) -> list[sippy.PremisAgent]:
@@ -112,7 +113,7 @@ class PreservationTransformer:
                 name=agent.name.text,
                 type=agent.type.text,
             )
-            for agent in self.package.premis_info.agents
+            for agent in self.sip.metadata.preservation.agents
             if any(id.is_uuid for id in agent.identifiers)
         ]
 
@@ -123,14 +124,14 @@ def map_fixity_digest_algorithm_to_uri(algorithm: str) -> str:
             "http://id.loc.gov/vocabulary/preservation/cryptographicHashFunctions/md5"
         )
 
-    raise ParseException(f"Unknown fixity message digest algorithm {algorithm}")
+    raise TransformatorError(f"Unknown fixity message digest algorithm {algorithm}")
 
 
 def map_file_format_to_uri(format: premis.Format) -> str:
     if not format.registry:
-        raise ParseException("Format registry must be present")
+        raise TransformatorError("Format registry must be present")
     if format.registry.name.text != "PRONOM":
-        raise ParseException("Only the PRONOM format registry is supported")
+        raise TransformatorError("Only the PRONOM format registry is supported")
 
     format_key = format.registry.key.text
     return "https://www.nationalarchives.gov.uk/pronom/" + format_key
@@ -154,22 +155,22 @@ def filter_digital_relationships_by_name(
 
 
 @dataclass
-class DigitalTransformer:
+class RepresentationTransformer:
     """
     Transform a premis SIP representation into a SIP.py DigitalRepresentation
     """
 
-    representation_level: Level
+    representation: Representation
 
     def is_digital_relationship(self, relationship: premis.Relationship) -> bool:
         # TODO: represents also contains carrier representation
         return relationship.sub_type.text in sippy.Represents
 
     def parse_digital_representation(self) -> sippy.DigitalRepresentation:
-        premis_repr = self.representation_level.premis_info.representation
+        premis_repr = self.representation.metadata.preservation.representation
         files = [
             self.parse_file(file)
-            for file in self.representation_level.premis_info.files
+            for file in self.representation.metadata.preservation.files
         ]
         relationship_to_entity = next(
             (
@@ -213,12 +214,12 @@ class DigitalTransformer:
         format = next(iter(next(c.format for c in file.characteristics)))
 
         if file.original_name is None:
-            raise ParseException()
+            raise TransformatorError()
 
         original_name = file.original_name.text
-        relative_path = self.representation_level.relative_path
+        relative_path = self.representation.path
 
-        premis_representation = self.representation_level.premis_info.representation
+        premis_representation = self.representation.metadata.preservation.representation
         representation_identifier = premis_representation.uuid.value.text
 
         return sippy.File(
@@ -249,7 +250,7 @@ class CarrierTransformer:
     Transform the carrier representation in the package premis file into a SIP.py CarrierRepresentation.
     """
 
-    package_level: Level
+    sip: SIP[Any]
 
     def is_carrier_relationship(self, relationship: premis.Relationship) -> bool:
         return relationship.sub_type.text == "is carrier copy of"
@@ -350,20 +351,20 @@ class CarrierTransformer:
         iri = "https://data.hetarchief.be/id/color-type/" + coloring_type
         coloring_types = [c for c in sippy.ColoringType]
         if iri not in coloring_types:
-            raise ParseException(
+            raise TransformatorError(
                 f"Unkown coloring type {coloring_type}. Coloring type must be one of {coloring_types}"
             )
         return sippy.URIRef(id=sippy.ColoringType(iri))
 
     @property
     def premis_carrier(self) -> premis.Representation:
-        return self.package_level.premis_info.representation
+        return self.sip.metadata.preservation.representation
 
     @cached_property
     def carrier_significant_properties(self) -> film.CarrierSignificantProperties:
         significant_properties = next(iter(self.premis_carrier.significant_properties))
         extension = next(iter(significant_properties.extension))
-        return film.CarrierSignificantProperties.from_xml_tree(extension)
+        return film.CarrierSignificantProperties.from_xml_tree(extension.element)
 
     @property
     def reference_to_entity(self) -> sippy.Reference:
@@ -472,7 +473,9 @@ class EventTransformer:
             case "warning":
                 return "http://id.loc.gov/vocabulary/preservation/eventOutcome/war"
 
-        raise ParseException("Event outcome must be one of success, fail or warning.")
+        raise TransformatorError(
+            "Event outcome must be one of success, fail or warning."
+        )
 
     def outcome_note(self, event: premis.Event) -> str | None:
         outcome_note = "\\n".join(

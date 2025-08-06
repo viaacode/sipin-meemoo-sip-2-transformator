@@ -42,17 +42,13 @@ class EventListener:
 
         subject = event.get_attributes()["subject"]
         self.log.info(f"Start handling of {subject}.")
-        path = event.get_data()["sip_path"]
-        # TODO: Sip profile is not yet implemented in the event. For now use the hardcoded value below.
-        # profile = event.get_data()["sip_profile"]
 
-        # TODO: remove hardcoded profile - only necessairy for demo
-        profile = "https://data.hetarchief.be/id/sip/2.1/film"
-
+        unzipped_path = Path(event.get_data()["sip_path"])
+        profile = utils.get_sip_profile(unzipped_path)
         transformator_fn = self.get_sip_transformator(profile)
-        data = transformator_fn(Path(path))
-        data["is_valid"] = True
-        self.produce_success_event(event, data)
+        data = transformator_fn(unzipped_path)
+
+        self.produce_success_event(event.correlation_id, unzipped_path, data)
 
     def get_sip_transformator(self, profile: str) -> Callable[[Path], dict[str, Any]]:
         parts = profile.split("/")
@@ -66,14 +62,14 @@ class EventListener:
                     "Invalid SIP profile found in received message."
                 )
 
-    def produce_success_event(self, event: Event, data: dict[str, Any]):
-        path = event.get_data()["sip_path"]
+    def produce_success_event(self, correlation_id: str, unzipped_path: Path, data: dict[str, Any]):
+        data["is_valid"] = True
         produced_event = Event(
             attributes=EventAttributes(
                 datacontenttype="application/cloudevents+json; charset=utf-8",
-                correlation_id=event.correlation_id,
+                correlation_id=correlation_id,
                 source=APP_NAME,
-                subject=path,
+                subject=str(unzipped_path),
                 outcome=EventOutcome.SUCCESS,
             ),
             data=data,

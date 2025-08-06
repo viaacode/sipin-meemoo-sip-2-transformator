@@ -9,8 +9,9 @@ dependencies = [
     "pulsar-client==3.7.0",
     "meemoo-cloudevents==0.1.0rc3",
     "lxml==5.4.0",
+    "pydantic==2.11.7",
     "sipin-eark-models==0.0.6",
-    "SIP.py==0.0.6",
+    "SIP.py==0.0.7",
 ]
 classifiers = [
   "Development Status :: 3 - Alpha",

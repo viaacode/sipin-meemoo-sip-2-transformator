@@ -1,7 +1,7 @@
 [project]
 name = "sipin-meemoo-sip-2-transformator"
 version = "0.0.1"
-description = "A service that transforms a meemoo SIP to a (Python) model."
+description = "A service that transforms a meemoo SIP to a SIP.py model."
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
@@ -29,5 +29,4 @@ dev = [
 
 [tool.pytest.ini_options]
 minversion = "6.0"
-addopts = "--rootdir=./app/ -v"
-testpaths = ["tests"]
+addopts = "-v"

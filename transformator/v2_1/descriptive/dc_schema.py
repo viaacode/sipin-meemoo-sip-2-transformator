@@ -326,16 +326,20 @@ class DCSchemaTransformator:
 
 
 def to_unique_lang_strings(
-    langstrings: list[dcs.LangString],
+    langstrings: dcs.UniqueLang,
 ) -> sippy.UniqueLangStrings:
     return sippy.UniqueLangStrings(
-        root=[sippy.LangString(lang=l.lang, value=l.value) for l in langstrings]
+        root=[
+            sippy.LangString(lang=lang.lang, value=lang.value) for lang in langstrings
+        ]
     )
 
 
-def to_lang_strings(langstrings: list[dcs.LangString]) -> sippy.LangStrings:
+def to_lang_strings(langstrings: dcs.LangStrings) -> sippy.LangStrings:
     return sippy.LangStrings(
-        root=[sippy.LangString(lang=l.lang, value=l.value) for l in langstrings]
+        root=[
+            sippy.LangString(lang=lang.lang, value=lang.value) for lang in langstrings
+        ]
     )
 
 

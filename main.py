@@ -1,4 +1,4 @@
-from app.app import EventListener
+from transformator.app import EventListener
 
 if __name__ == "__main__":
     EventListener().start_listening()

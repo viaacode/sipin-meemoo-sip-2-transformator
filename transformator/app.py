@@ -5,8 +5,8 @@ from cloudevents.events import Event, EventAttributes, EventOutcome, PulsarBindi
 from viaa.configuration import ConfigParser
 from viaa.observability import logging
 
-from app.services.pulsar import PulsarClient
-from app import v2_1, utils
+from transformator.services.pulsar import PulsarClient
+from transformator import v2_1, utils
 
 import _pulsar
 

@@ -10,8 +10,8 @@ import pulsar
 
 from cloudevents import PulsarBinding
 
-from app.app import EventListener
-from app.services.config import PulsarConfig
+from transformator.app import EventListener
+from transformator.services.config import PulsarConfig
 
 
 pulsar_config = PulsarConfig.from_env()

@@ -1,7 +1,7 @@
 [project]
 name = "sipin-meemoo-sip-2-transformator"
 version = "0.0.1"
-description = "A service that transforms a meemoo SIP to a (Python) model."
+description = "A service that transforms a meemoo SIP to a SIP.py model."
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
@@ -10,7 +10,7 @@ dependencies = [
     "meemoo-cloudevents==0.1.0rc3",
     "lxml==5.4.0",
     "pydantic==2.11.7",
-    "sipin-eark-models==0.0.6",
+    "sipin-eark-models==0.0.9",
     "SIP.py==0.0.7",
 ]
 classifiers = [
@@ -29,5 +29,4 @@ dev = [
 
 [tool.pytest.ini_options]
 minversion = "6.0"
-addopts = "--rootdir=./app/ -v"
-testpaths = ["tests"]
+addopts = "-v"

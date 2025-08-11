@@ -2,7 +2,7 @@ from pathlib import Path
 import pytest
 
 import sippy
-from app.v2_1 import transform_sip
+from transformator.v2_1 import transform_sip
 
 sip_paths = set(Path("tests/sip-examples/2.1").iterdir())
 

@@ -364,7 +364,7 @@ class CarrierTransformer:
     def carrier_significant_properties(self) -> film.CarrierSignificantProperties:
         significant_properties = next(iter(self.premis_carrier.significant_properties))
         extension = next(iter(significant_properties.extension))
-        return film.CarrierSignificantProperties.from_xml_tree(extension.element)
+        return film.CarrierSignificantProperties.from_xml_tree(extension)
 
     @property
     def reference_to_entity(self) -> sippy.Reference:

@@ -50,7 +50,10 @@ class PreservationTransformer:
             if id.is_primary_identifier
         ]
         local_identifiers = [
-            sippy.LocalIdentifier(value=id.value.text, type=haObj[id.type.text])
+            sippy.LocalIdentifier(
+                value=id.value.text,
+                type="https://data.hetarchief.be/ns/object/" + id.type.text,
+            )
             for id in entity.identifiers
             if id.is_local_identifier
         ]

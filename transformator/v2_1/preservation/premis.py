@@ -496,21 +496,19 @@ class EventTransformer:
     def agent_is_implementer(self, link: premis.LinkingAgentIdentifier) -> bool:
         return any([role.text == "implementer" for role in link.roles])
 
-    def implemented_by(self, event: premis.Event) -> sippy.AnyOrganization:
+    def implemented_by(self, event: premis.Event) -> sippy.Thing:
         agents = (
             self.agent_map.get(link)
             for link in event.linking_agent_identifiers
             if self.agent_is_implementer(link)
         )
         implementer_agent = next(agents)
-        return sippy.Organization(
-            identifier=implementer_agent.primary_identifier.value.text,
-            pref_label=sippy.UniqueLangStrings.codes(nl=implementer_agent.name.text),
+        return sippy.Thing(
             name=sippy.UniqueLangStrings.codes(nl=implementer_agent.name.text),
         )
 
     def agent_is_executer(self, link: premis.LinkingAgentIdentifier) -> bool:
-        return any([role.text == "executer" for role in link.roles])
+        return any([role.text == "executing program" for role in link.roles])
 
     def executed_by(self, event: premis.Event) -> sippy.SoftwareAgent | None:
         agents = (

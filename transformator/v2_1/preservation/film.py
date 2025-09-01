@@ -60,6 +60,7 @@ class PhysicalCarrier:
     preservation_problems: list[str]
     brand: Brand | None
     storage_location_value: StorageLocationValue | None
+    material: str | None
 
     @classmethod
     def from_xml_tree(cls, element: _Element) -> Self:
@@ -73,6 +74,7 @@ class PhysicalCarrier:
         )
         return cls(
             identifier=get_text(element, haSip.identifier),
+            material=element.findtext(haSip.material),
             medium=get_text(element, haSip.medium),
             preservation_problems=[
                 (el.text if el.text else "")
@@ -86,9 +88,7 @@ class PhysicalCarrier:
 @dataclass
 class ImageReel(PhysicalCarrier):
     aspect_ratio: str | None
-    material: str | None
     stock_type: str | None
-
     coloring_type: list[str]
     has_captioning: HasCaptioning | None
 
@@ -104,10 +104,10 @@ class ImageReel(PhysicalCarrier):
             else None
         )
         return cls(
+            material=element.findtext(haSip.material),
             identifier=get_text(element, haSip.identifier),
             medium=get_text(element, haSip.medium),
             aspect_ratio=element.findtext(haSip.aspectRatio),
-            material=element.findtext(haSip.material),
             preservation_problems=[
                 (el.text if el.text else "")
                 for el in element.findall(haSip.preservationProblems)
@@ -130,7 +130,6 @@ class ImageReel(PhysicalCarrier):
 @dataclass(kw_only=True)
 class AudioReel(PhysicalCarrier):
     aspect_ratio: str | None
-    material: str | None
     stock_type: str | None
 
     @classmethod
@@ -160,15 +159,18 @@ class AudioReel(PhysicalCarrier):
 
 @dataclass(kw_only=True)
 class StoredAt:
+    physical_carriers: list[PhysicalCarrier]
     image_reels: list[ImageReel]
     audio_reels: list[AudioReel]
 
     @classmethod
     def from_xml_tree(cls, element: _Element) -> Self:
+        carriers = element.findall(haSip.physicalCarrier)
         images = element.findall(haSip.imageReel)
         audios = element.findall(haSip.audioReel)
 
         return cls(
+            physical_carriers=[PhysicalCarrier.from_xml_tree(car) for car in carriers],
             image_reels=[ImageReel.from_xml_tree(image) for image in images],
             audio_reels=[AudioReel.from_xml_tree(audio) for audio in audios],
         )

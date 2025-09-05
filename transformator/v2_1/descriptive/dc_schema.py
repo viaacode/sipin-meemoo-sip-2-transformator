@@ -291,10 +291,22 @@ class DCSchemaTransformator:
             case dcs.BroadcastEvent():
                 return sippy.BroadcastEvent(name=name)
             case dcs.Episode():
-                # TODO: identifier in datamodels is 1..1
-                return sippy.Episode(name=name)
+                return sippy.Episode(name=name, has_part=[])
             case dcs.ArchiveComponent():
-                return sippy.ArchiveComponent(name=name)
+                has_part_names = [
+                    to_unique_lang_strings(has_part.name)
+                    for has_part in sip_creative_work.has_part
+                ]
+                return sippy.ArchiveComponent(
+                    name=name,
+                    has_part=[
+                        sippy.ArchiveComponent(
+                            name=has_part_name,
+                            has_part=[],
+                        )
+                        for has_part_name in has_part_names
+                    ],
+                )
             case dcs.CreativeWorkSeries():
                 has_part_names = [
                     to_unique_lang_strings(has_part.name)
@@ -316,6 +328,7 @@ class DCSchemaTransformator:
                 return sippy.CreativeWorkSeason(
                     name=name,
                     season_number=sip_creative_work.season_number,
+                    has_part=[],
                 )
 
     @property

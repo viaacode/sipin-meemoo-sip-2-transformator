@@ -1,5 +1,5 @@
 from typing import cast, Any
-from functools import partial, cached_property
+from functools import partial
 from itertools import chain
 
 from pydantic.dataclasses import dataclass
@@ -7,9 +7,11 @@ from pydantic.dataclasses import dataclass
 import sippy
 from eark_models.namespaces import Namespace
 
+
 from ..models import premis, SIP, Representation
 from .premis_utils import AgentMap, ObjectMap, TemporaryObject
 from . import film
+from ..descriptive.dc_schema import to_unique_lang_strings
 
 from ..utils import TransformatorError
 
@@ -50,7 +52,10 @@ class PreservationTransformer:
             if id.is_primary_identifier
         ]
         local_identifiers = [
-            sippy.LocalIdentifier(value=id.value.text, type=haObj[id.type.text])
+            sippy.LocalIdentifier(
+                value=id.value.text,
+                type="https://data.hetarchief.be/ns/object/" + id.type.text,
+            )
             for id in entity.identifiers
             if id.is_local_identifier
         ]
@@ -257,38 +262,54 @@ class CarrierTransformer:
 
     def parse_carrier_representation(self) -> sippy.CarrierRepresentation:
         return sippy.CarrierRepresentation(
-            id=self.premis_carrier.uuid.value.text,
-            represents=self.reference_to_entity,
-            is_carrier_copy_of=self.reference_to_entity,
+            id=self.get_premis_carrier().uuid.value.text,
+            represents=self.get_reference_to_entity(),
+            is_carrier_copy_of=self.get_reference_to_entity(),
             stored_at=[
-                *self.image_reels,
-                *self.audio_reels,
+                # TODO: transform physical carrier (video)
+                *self.transform_physical_carriers(),
+                *self.transform_image_reels(),
+                *self.transform_audio_reels(),
             ],
-            has_missing_audio_reels=self.carrier_significant_properties.has_missing_audio_reels,
-            has_missing_image_reels=self.carrier_significant_properties.has_missing_image_reels,
+            has_missing_audio_reels=self.get_carrier_significant_properties().has_missing_audio_reels,
+            has_missing_image_reels=self.get_carrier_significant_properties().has_missing_image_reels,
             number_of_reels=self.number_of_reels,
             number_of_missing_audio_reels=None,
             number_of_missing_image_reels=None,
             number_of_audio_tracks=None,
             number_of_audio_channels=None,
             name=sippy.UniqueLangStrings.codes(
-                nl=f"Carrier representation of {self.reference_to_entity.id}"
+                nl=f"Carrier representation of {self.get_reference_to_entity().id}"
             ),
         )
 
     @property
     def number_of_reels(self) -> sippy.NonNegativeInt | None:
-        n_reels = self.carrier_significant_properties.number_of_reels
+        n_reels = self.get_carrier_significant_properties().number_of_reels
         return sippy.NonNegativeInt(value=n_reels) if n_reels is not None else None
 
     def map_medium_to_uri(self, medium: str) -> str:
         return "https://data.hetarchief.be/id/carrier-type/" + medium
 
-    def audio_reel(self, audio_reel: film.AudioReel) -> sippy.AudioReel:
-        return sippy.AudioReel(**self.physical_carrier(audio_reel).keywords)
+    def transform_audio_reel(self, audio_reel: film.AudioReel) -> sippy.AudioReel:
+        return sippy.AudioReel(
+            **self.transform_partial_physical_carrier(audio_reel).keywords
+        )
 
-    def physical_carrier(
-        self, physical_carrier: film.ImageReel | film.AudioReel
+    def transform_physical_carriers(self) -> list[sippy.PhysicalCarrier]:
+        physical_carriers = chain.from_iterable(
+            stored_at.physical_carriers
+            for stored_at in self.get_carrier_significant_properties().stored_at
+        )
+        return [
+            sippy.PhysicalCarrier(
+                **self.transform_partial_physical_carrier(physical_carrier).keywords
+            )
+            for physical_carrier in physical_carriers
+        ]
+
+    def transform_partial_physical_carrier(
+        self, physical_carrier: film.ImageReel | film.AudioReel | film.PhysicalCarrier
     ) -> partial[sippy.PhysicalCarrier]:
         return partial(
             sippy.PhysicalCarrier,
@@ -302,6 +323,12 @@ class CarrierTransformer:
             material=physical_carrier.material,
             material_extent=None,
             identifier=physical_carrier.identifier,
+            brand=sippy.Brand(name=to_unique_lang_strings(physical_carrier.brand.name))
+            if physical_carrier.brand
+            else None,
+            file_path=physical_carrier.storage_location_value.value
+            if physical_carrier.storage_location_value
+            else None,
             preservation_problem=[
                 sippy.Concept(
                     id=sippy.uuid4(),
@@ -311,31 +338,29 @@ class CarrierTransformer:
             ],
         )
 
-    def image_reel(self, image_reel: film.ImageReel) -> sippy.ImageReel:
+    def transform_image_reel(self, image_reel: film.ImageReel) -> sippy.ImageReel:
         return sippy.ImageReel(
-            **self.physical_carrier(image_reel).keywords,
-            file_path=None,
+            **self.transform_partial_physical_carrier(image_reel).keywords,
             name=sippy.UniqueLangStrings.codes(nl=f"Image Reel {image_reel.medium}"),
             coloring_type=[self.coloring_type(c) for c in image_reel.coloring_type],
             has_captioning=self.has_captioning(image_reel.has_captioning),
             aspect_ratio=image_reel.aspect_ratio,
+            stock_type=image_reel.stock_type,
         )
 
-    @property
-    def image_reels(self) -> list[sippy.ImageReel]:
+    def transform_image_reels(self) -> list[sippy.ImageReel]:
         image_reels = chain.from_iterable(
             stored_at.image_reels
-            for stored_at in self.carrier_significant_properties.stored_at
+            for stored_at in self.get_carrier_significant_properties().stored_at
         )
-        return [self.image_reel(reel) for reel in image_reels]
+        return [self.transform_image_reel(reel) for reel in image_reels]
 
-    @property
-    def audio_reels(self) -> list[sippy.AudioReel]:
+    def transform_audio_reels(self) -> list[sippy.AudioReel]:
         audio_reels = chain.from_iterable(
             stored_at.audio_reels
-            for stored_at in self.carrier_significant_properties.stored_at
+            for stored_at in self.get_carrier_significant_properties().stored_at
         )
-        return [self.audio_reel(reel) for reel in audio_reels]
+        return [self.transform_audio_reel(reel) for reel in audio_reels]
 
     def has_captioning(
         self, has_captioning: film.HasCaptioning | None
@@ -356,21 +381,21 @@ class CarrierTransformer:
             )
         return sippy.URIRef(id=sippy.ColoringType(iri))
 
-    @property
-    def premis_carrier(self) -> premis.Representation:
+    def get_premis_carrier(self) -> premis.Representation:
         return self.sip.metadata.preservation.representation
 
-    @cached_property
-    def carrier_significant_properties(self) -> film.CarrierSignificantProperties:
-        significant_properties = next(iter(self.premis_carrier.significant_properties))
+    # FIXME: cache this function
+    def get_carrier_significant_properties(self) -> film.CarrierSignificantProperties:
+        significant_properties = next(
+            iter(self.get_premis_carrier().significant_properties)
+        )
         extension = next(iter(significant_properties.extension))
-        return film.CarrierSignificantProperties.from_xml_tree(extension.element)
+        return film.CarrierSignificantProperties.from_xml_tree(extension)
 
-    @property
-    def reference_to_entity(self) -> sippy.Reference:
+    def get_reference_to_entity(self) -> sippy.Reference:
         relationship_to_entity = next(
             rel
-            for rel in self.premis_carrier.relationships
+            for rel in self.get_premis_carrier().relationships
             if self.is_carrier_relationship(rel)
         )
         return sippy.Reference(id=relationship_to_entity.related_object_uuid)
@@ -493,21 +518,19 @@ class EventTransformer:
     def agent_is_implementer(self, link: premis.LinkingAgentIdentifier) -> bool:
         return any([role.text == "implementer" for role in link.roles])
 
-    def implemented_by(self, event: premis.Event) -> sippy.AnyOrganization:
+    def implemented_by(self, event: premis.Event) -> sippy.Thing:
         agents = (
             self.agent_map.get(link)
             for link in event.linking_agent_identifiers
             if self.agent_is_implementer(link)
         )
         implementer_agent = next(agents)
-        return sippy.Organization(
-            identifier=implementer_agent.primary_identifier.value.text,
-            pref_label=sippy.UniqueLangStrings.codes(nl=implementer_agent.name.text),
+        return sippy.Thing(
             name=sippy.UniqueLangStrings.codes(nl=implementer_agent.name.text),
         )
 
     def agent_is_executer(self, link: premis.LinkingAgentIdentifier) -> bool:
-        return any([role.text == "executer" for role in link.roles])
+        return any([role.text == "executing program" for role in link.roles])
 
     def executed_by(self, event: premis.Event) -> sippy.SoftwareAgent | None:
         agents = (

@@ -1,0 +1,41 @@
+<premis:significantPropertiesExtension xmlns:premis="http://www.loc.gov/premis/v3" xmlns:hasip="https://data.hetarchief.be/ns/sip/">
+  <hasip:numberOfReels>3</hasip:numberOfReels>
+  <hasip:hasMissingAudioReels>1</hasip:hasMissingAudioReels>
+  <hasip:hasMissingImageReels>1</hasip:hasMissingImageReels>
+  <hasip:storedAt>
+    <hasip:physicalCarrier>
+      <hasip:identifier>ABC</hasip:identifier>
+      <hasip:medium>VHS</hasip:medium>
+      <hasip:preservationProblem>Some problems</hasip:preservationProblem>
+      <hasip:brand>Sony</hasip:brand>
+      <hasip:value>in the cupboard under the stairs</hasip:value>
+    </hasip:physicalCarrier>
+    <hasip:imageReel>
+      <hasip:identifier>ABC</hasip:identifier>
+      <hasip:medium>VHS</hasip:medium>
+      <hasip:preservationProblem>Some problems</hasip:preservationProblem>
+      <hasip:brand>Sony</hasip:brand>
+      <hasip:value>in the cupboard under the stairs</hasip:value>
+      <hasip:aspectRatio>1,19:1</hasip:aspectRatio>
+      <hasip:material>acetate</hasip:material>
+      <hasip:stockType>Original positive</hasip:stockType>
+      <hasip:coloringType>BandW</hasip:coloringType>
+      <hasip:coloringType>Color</hasip:coloringType>
+      <hasip:hasCaptioning>
+        <hasip:openCaptions>
+          <hasip:inLanguage>nl</hasip:inLanguage>
+        </hasip:openCaptions>
+      </hasip:hasCaptioning>
+    </hasip:imageReel>
+    <hasip:audioReel>
+      <hasip:identifier>ABC</hasip:identifier>
+      <hasip:medium>VHS</hasip:medium>
+      <hasip:preservationProblem>Some problems</hasip:preservationProblem>
+      <hasip:brand>Sony</hasip:brand>
+      <hasip:value>in the cupboard under the stairs</hasip:value>
+      <hasip:aspectRatio>1,19:1</hasip:aspectRatio>
+      <hasip:material>acetate</hasip:material>
+      <hasip:stockType>Original positive</hasip:stockType>
+    </hasip:audioReel>
+  </hasip:storedAt>
+</premis:significantPropertiesExtension>

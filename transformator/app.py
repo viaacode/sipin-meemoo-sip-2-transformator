@@ -62,7 +62,9 @@ class EventListener:
                     "Invalid SIP profile found in received message."
                 )
 
-    def produce_success_event(self, correlation_id: str, unzipped_path: Path, data: dict[str, Any]):
+    def produce_success_event(
+        self, correlation_id: str, unzipped_path: Path, data: dict[str, Any]
+    ):
         data["is_valid"] = True
         produced_event = Event(
             attributes=EventAttributes(

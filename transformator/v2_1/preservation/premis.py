@@ -5,7 +5,7 @@ from itertools import chain
 from pydantic.dataclasses import dataclass
 
 import sippy
-from eark_models.namespaces import Namespace
+from eark_models.namespaces import Namespace, schema
 
 
 from ..models import premis, SIP, Representation
@@ -545,10 +545,29 @@ class EventTransformer:
         return sippy.SoftwareAgent(
             id=executer_agent.primary_identifier.value.text,
             name=sippy.UniqueLangStrings.codes(nl=executer_agent.name.text),
-            model=None,
-            serial_number=None,
+            model=self.get_model(executer_agent.extension),
+            brand=self.get_brand(executer_agent.extension),
+            serial_number=self.get_serial_number(executer_agent.extension),
             version=None,
         )
+
+    def get_brand(self, agent_ext: list[premis._Element]) -> sippy.Brand | None:
+        brands = (
+            sippy.Brand(name=sippy.UniqueLangStrings.codes(nl=element.text))
+            for element in agent_ext
+            if element.tag == schema.brand and element.text is not None
+        )
+        return next(brands, None)
+
+    def get_serial_number(self, agent_ext: list[premis._Element]) -> str | None:
+        serial_numbers = (
+            element.text for element in agent_ext if element.tag == schema.serialNumber
+        )
+        return next(serial_numbers, None)
+
+    def get_model(self, agent_ext: list[premis._Element]) -> str | None:
+        models = (element.text for element in agent_ext if element.tag == schema.model)
+        return next(models, None)
 
     def agent_is_instrument(self, link: premis.LinkingAgentIdentifier) -> bool:
         return any([role.text == "instrument" for role in link.roles])
@@ -559,15 +578,21 @@ class EventTransformer:
             for link in event.linking_agent_identifiers
             if self.agent_is_instrument(link)
         ]
+
         return [
-            sippy.HardwareAgent(
-                name=sippy.UniqueLangStrings.codes(nl=ag.name.text),
-                model=None,
-                serial_number=None,
-                version=None,
-            )
-            for ag in instrument_agents
+            self.premis_instrument_agent_to_sippy(agent) for agent in instrument_agents
         ]
+
+    def premis_instrument_agent_to_sippy(
+        self, agent: premis.Agent
+    ) -> sippy.HardwareAgent:
+        return sippy.HardwareAgent(
+            name=sippy.UniqueLangStrings.codes(nl=agent.name.text),
+            model=self.get_model(agent.extension),
+            brand=self.get_brand(agent.extension),
+            serial_number=self.get_serial_number(agent.extension),
+            version=None,
+        )
 
     def agent_has_no_roles(self, link: premis.LinkingAgentIdentifier) -> bool:
         return len(link.roles) == 0

@@ -66,8 +66,10 @@ class EventListener:
         self, correlation_id: str, unzipped_path: Path, data: dict[str, Any]
     ):
         data["is_valid"] = True
+        producer_topic: str = self.pulsar_client.pulsar_config["producer_topic"]
         produced_event = Event(
             attributes=EventAttributes(
+                type=producer_topic,
                 datacontenttype="application/cloudevents+json; charset=utf-8",
                 correlation_id=correlation_id,
                 source=APP_NAME,
@@ -77,14 +79,14 @@ class EventListener:
             data=data,
         )
 
-        self.pulsar_client.produce_event(
-            self.pulsar_client.pulsar_config["producer_topic"], produced_event
-        )
+        self.pulsar_client.produce_event(producer_topic, produced_event)
 
     def produce_fail_event(self, event: Event, exception: Exception) -> None:
         subject = event.get_attributes()["subject"]
+        producer_topic: str = self.pulsar_client.pulsar_config["producer_topic"]
         produced_event = Event(
             attributes=EventAttributes(
+                type=producer_topic,
                 datacontenttype="application/cloudevents+json; charset=utf-8",
                 correlation_id=event.correlation_id,
                 source=APP_NAME,
@@ -97,9 +99,7 @@ class EventListener:
             },
         )
 
-        self.pulsar_client.produce_event(
-            self.pulsar_client.pulsar_config["producer_topic"], produced_event
-        )
+        self.pulsar_client.produce_event(producer_topic, produced_event)
 
     def start_listening(self):
         """

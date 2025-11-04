@@ -43,6 +43,7 @@ def parse_dc_schema(path: Path) -> partial[sippy.IntellectualEntity]:
         artform=tf.artform,
         schema_is_part_of=tf.schema_is_part_of,
         credit_text=tf.credit_text,
+        castmembers=tf.castmember,
         # Other
         has_part=[],
         is_part_of=[],
@@ -336,6 +337,20 @@ class DCSchemaTransformator:
         if len(self.dc_plus_schema.genre) == 0:
             return None
         return to_unique_lang_strings(self.dc_plus_schema.genre)
+
+    @property
+    def castmember(self) -> str | None:
+        if len(self.dc_plus_schema.actors) == 0:
+            return None
+
+        return "; ".join(
+            [
+                next(name.value for name in actor.name if name.lang == "nl")
+                + " - "
+                + (actor.character_name if actor.character_name else "")
+                for actor in self.dc_plus_schema.actors
+            ]
+        )
 
 
 def to_unique_lang_strings(

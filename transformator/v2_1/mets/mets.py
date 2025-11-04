@@ -80,6 +80,8 @@ def parse_mets(mets_path: Path) -> METS:
         mets_xml,
         "mets:dmdSec/mets:mdRef[@LOCTYPE='URL' and @xlink:type='simple']/@xlink:href",
     )
+    if dmd_href is not None:
+        dmd_href = dmd_href.replace("dc%2Bschema.xml", "dc+schema.xml")
     amd_href = xpath_optional_text(
         mets_xml,
         "mets:amdSec/mets:digiprovMD/mets:mdRef[@LOCTYPE='URL' and @xlink:type='simple']/@xlink:href",

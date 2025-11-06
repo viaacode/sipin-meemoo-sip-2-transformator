@@ -27,6 +27,9 @@ dev = [
     "ruff==0.12.1",
 ]
 
+[project.scripts]
+meemoo-sip-transformator = "transformator.cli.cli_transformator:cli_transformator"
+
 [tool.pytest.ini_options]
 minversion = "6.0"
 addopts = "-v"

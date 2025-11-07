@@ -39,7 +39,7 @@ class Brand:
 
     @classmethod
     def from_xml_tree(cls, element: _Element) -> Self:
-        return cls(name=unique_lang(element, schema.name))
+        return cls(name=unique_lang(element, haSip.name))
 
 
 @dataclass

@@ -293,7 +293,10 @@ class CarrierTransformer:
 
     def transform_audio_reel(self, audio_reel: film.AudioReel) -> sippy.AudioReel:
         return sippy.AudioReel(
-            **self.transform_partial_physical_carrier(audio_reel).keywords
+            **self.transform_partial_physical_carrier(audio_reel).keywords,
+            aspect_ratio=audio_reel.aspect_ratio,
+            stock_type=audio_reel.stock_type,
+            name=sippy.UniqueLangStrings.codes(nl="Audio Reel"),
         )
 
     def transform_physical_carriers(self) -> list[sippy.PhysicalCarrier]:
@@ -303,7 +306,8 @@ class CarrierTransformer:
         )
         return [
             sippy.PhysicalCarrier(
-                **self.transform_partial_physical_carrier(physical_carrier).keywords
+                **self.transform_partial_physical_carrier(physical_carrier).keywords,
+                name=sippy.UniqueLangStrings.codes(nl="Physical Carrier"),
             )
             for physical_carrier in physical_carriers
         ]
@@ -370,7 +374,10 @@ class CarrierTransformer:
         return [self.open_captions(c) for c in has_captioning.open_captions]
 
     def open_captions(self, open_captions: film.OpenCaptions) -> sippy.OpenCaptions:
-        return sippy.OpenCaptions(in_language=open_captions.in_languages)
+        return sippy.OpenCaptions(
+            in_language=open_captions.in_languages,
+            name=sippy.UniqueLangStrings.codes(nl="Open Captions"),
+        )
 
     def coloring_type(self, coloring_type: str) -> sippy.URIRef[sippy.ColoringType]:
         iri = "https://data.hetarchief.be/id/color-type/" + coloring_type

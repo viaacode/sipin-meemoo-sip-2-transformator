@@ -1,4 +1,4 @@
-from typing import Any, Callable
+from typing import Any
 from pathlib import Path
 
 from cloudevents.events import Event, EventAttributes, EventOutcome, PulsarBinding
@@ -6,7 +6,7 @@ from viaa.configuration import ConfigParser
 from viaa.observability import logging
 
 from transformator.services.pulsar import PulsarClient
-from transformator import v2_1, utils
+import transformator.utils
 
 import _pulsar
 
@@ -44,23 +44,11 @@ class EventListener:
         self.log.info(f"Start handling of {subject}.")
 
         unzipped_path = Path(event.get_data()["sip_path"])
-        profile = utils.get_sip_profile(unzipped_path)
-        transformator_fn = self.get_sip_transformator(profile)
+        profile = transformator.utils.get_sip_profile(unzipped_path)
+        transformator_fn = transformator.utils.get_sip_transformator(profile)
         data = transformator_fn(unzipped_path)
 
         self.produce_success_event(event.correlation_id, unzipped_path, data)
-
-    def get_sip_transformator(self, profile: str) -> Callable[[Path], dict[str, Any]]:
-        parts = profile.split("/")
-        version = parts[-2]
-
-        match version:
-            case "2.1":
-                return v2_1.transform_sip
-            case _:
-                raise utils.TransformatorError(
-                    "Invalid SIP profile found in received message."
-                )
 
     def produce_success_event(
         self, correlation_id: str, unzipped_path: Path, data: dict[str, Any]

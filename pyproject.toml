@@ -10,8 +10,8 @@ dependencies = [
     "meemoo-cloudevents==0.1.0rc3",
     "lxml==5.4.0",
     "pydantic==2.11.7",
-    "sipin-eark-models==0.0.13",
-    "SIP.py==0.0.9",
+    "sipin-eark-models==0.0.14",
+    "SIP.py==0.1.0",
 ]
 classifiers = [
   "Development Status :: 3 - Alpha",
@@ -26,6 +26,9 @@ dev = [
     "testcontainers==4.10.0",
     "ruff==0.12.1",
 ]
+
+[project.scripts]
+meemoo-sip-transformator = "transformator.cli.cli_transformator:cli_transformator"
 
 [tool.pytest.ini_options]
 minversion = "6.0"

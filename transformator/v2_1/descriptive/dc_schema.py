@@ -333,10 +333,10 @@ class DCSchemaTransformator:
                 )
 
     @property
-    def genre(self) -> sippy.UniqueLangStrings | None:
+    def genre(self) -> sippy.LangStrings | None:
         if len(self.dc_plus_schema.genre) == 0:
             return None
-        return to_unique_lang_strings(self.dc_plus_schema.genre)
+        return to_lang_strings(self.dc_plus_schema.genre)
 
     @property
     def castmember(self) -> str | None:

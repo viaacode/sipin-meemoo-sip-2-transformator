@@ -9,7 +9,6 @@ from .models import SIP, dcs
 from .descriptive import parse_descriptive
 from .preservation.premis import PreservationTransformer
 from . import utils
-from ..utils import get_sip_profile
 from .mets.mets import parse_mets
 
 
@@ -26,7 +25,7 @@ def transform_to_sippy(unzipped_path: Path) -> sippy.SIP:
     Parse a meemoo SIP given its unzipped path.
     """
 
-    profile = get_sip_profile(unzipped_path)
+    profile = utils.get_sip_profile(unzipped_path)
     DescriptiveModel = get_descriptive_model(profile)
 
     sip = SIP[DescriptiveModel].from_path(Path(unzipped_path), DescriptiveModel)

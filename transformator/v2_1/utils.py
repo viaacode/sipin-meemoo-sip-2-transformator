@@ -1,3 +1,6 @@
+from pathlib import Path
+import xml.etree.ElementTree as ET
+
 from lxml.etree import _Element
 
 SIP_VERSION = "2.1"
@@ -28,6 +31,17 @@ ns = {
     # carrier significant properties extension
     "hasip": "https://data.hetarchief.be/ns/sip/",
 }
+
+
+def get_sip_profile(unzipped_path: Path) -> str:
+    root_mets_path = unzipped_path.joinpath("METS.xml")
+    mets_root = ET.parse(root_mets_path).getroot()
+    profile = mets_root.get(
+        "{https://DILCIS.eu/XML/METS/CSIPExtensionMETS}OTHERCONTENTINFORMATIONTYPE"
+    )
+    if profile is None:
+        raise TransformatorError("Could not determine profile.")
+    return profile
 
 
 def xpath_element(element: _Element, path: str) -> _Element:

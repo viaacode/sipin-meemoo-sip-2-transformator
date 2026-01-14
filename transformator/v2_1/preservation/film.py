@@ -2,7 +2,7 @@ from typing import Self
 
 from pydantic.dataclasses import dataclass
 
-from eark_models.namespaces import Namespace, schema
+from eark_models.namespaces import Namespace
 from eark_models.etree import _Element
 from eark_models.langstring import UniqueLang, unique_lang
 

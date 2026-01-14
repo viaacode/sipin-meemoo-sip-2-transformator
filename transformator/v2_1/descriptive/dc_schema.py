@@ -82,6 +82,8 @@ class DCSchemaTransformator:
 
     @property
     def description(self) -> sippy.UniqueLangStrings | None:
+        if len(self.dc_plus_schema.description) == 0:
+            return None
         return to_unique_lang_strings(self.dc_plus_schema.description)
 
     @property
